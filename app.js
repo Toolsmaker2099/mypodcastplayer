@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.66';
+const APP_VERSION = '2026-11-04.67';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -183,11 +183,13 @@ function renderSearch() {
       else openFeed(list[i], () => render());
     };
   });
+  let runTok = 0;
   const run = async () => {
+    const my = ++runTok, res = { set innerHTML(h) { if (my === runTok) $('#res').innerHTML = h; } }; // les réponses périmées sont ignorées
     const q = $('#q').value.trim(); searchQ = q;
     const p = piPrefs(), prod = pi ? PRODUCERS.find(x => x[0] === searchProd) : null;
     const browse = pi && ['trending', 'recent', 'new'].includes(p.mode);
-    $('#res').innerHTML = '<p class="dim">Recherche…</p>';
+    res.innerHTML = '<p class="dim">Recherche…</p>';
     try {
       if (pi) {
         let feeds, srvFiltered = false;
@@ -210,8 +212,8 @@ function renderSearch() {
         else if (p.sort === 'eps') feeds.sort((x, y) => (y.episodeCount || 0) - (x.episodeCount || 0));
         else if (p.sort === 'az') feeds.sort((x, y) => (x.title || '').localeCompare(y.title || '', 'fr'));
         const list = feeds.slice(0, 150).map(piMap);
-        $('#res').innerHTML = `<p class="count dim">${list.length} résultat${list.length > 1 ? 's' : ''}</p>` + (list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat avec ces filtres.</p>');
-        bind(list); return;
+        res.innerHTML = `<p class="count dim">${list.length} résultat${list.length > 1 ? 's' : ''}</p>` + (list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat avec ces filtres.</p>');
+        if (my === runTok) bind(list); return;
       }
       let results;
       if (q) results = (await (await fetch(`https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`)).json()).results;
@@ -223,9 +225,9 @@ function renderSearch() {
       }
       const list = results.slice(0, 100).map(x => ({ feedUrl: x.feedUrl || '', title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
       const nofeed = list.filter(f => !f.feedUrl).length;
-      $('#res').innerHTML = (nofeed ? `<p class="dim">${nofeed} résultat${nofeed > 1 ? 's' : ''} sans flux public dans l'annuaire Apple (grisé${nofeed > 1 ? 's' : ''}) : impossible de les lire ici.</p>` : '') + (list.map(f => showItem(f, !!f.feedUrl)).join('') || '<p class="dim">Aucun résultat.</p>');
-      bind(list);
-    } catch (err) { $('#res').innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
+      res.innerHTML = (nofeed ? `<p class="dim">${nofeed} résultat${nofeed > 1 ? 's' : ''} sans flux public dans l'annuaire Apple (grisé${nofeed > 1 ? 's' : ''}) : impossible de les lire ici.</p>` : '') + (list.map(f => showItem(f, !!f.feedUrl)).join('') || '<p class="dim">Aucun résultat.</p>');
+      if (my === runTok) bind(list);
+    } catch (err) { res.innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
   };
   const savePrefs = patch => { try { localStorage.setItem('pi.prefs', JSON.stringify({ ...piPrefs(), ...patch })); } catch {} };
   const refresh = () => { renderSearch(); };
@@ -236,7 +238,9 @@ function renderSearch() {
     refresh();
   });
   if (!pi) $('#agenre').onchange = e => { try { localStorage.setItem('apple.genre', e.target.value); } catch {} run(); };
-  $('#sf').onsubmit = e => { e.preventDefault(); run(); };
+  let dt = 0;
+  $('#q').oninput = () => { clearTimeout(dt); const v = $('#q').value.trim(); if (v.length === 1) return; dt = setTimeout(run, 380); }; // recherche au fil de la frappe
+  $('#sf').onsubmit = e => { e.preventDefault(); clearTimeout(dt); run(); };
   if (pi) {
     bindSeg('modeseg', v => { savePrefs({ mode: v }); refresh(); });
     bindSeg('langseg', v => { savePrefs({ lang: v }); refresh(); });
