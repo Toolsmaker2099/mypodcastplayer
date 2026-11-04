@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.95';
+const APP_VERSION = '2026-11-04.96';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -180,7 +180,7 @@ const plTotal = p => { const s = p.items.reduce((t, x) => t + durSec(x.dur), 0);
 let popState = null;
 function closePop() {
   if (!popState) return; const p = popState; popState = null;
-  document.removeEventListener('pointerdown', p.out, true); document.removeEventListener('keydown', p.key, true); removeEventListener('resize', closePop); removeEventListener('scroll', p.scroll, true);
+  document.removeEventListener('pointerdown', p.out, true); document.removeEventListener('keydown', p.key, true); removeEventListener('resize', p.resize); removeEventListener('scroll', p.scroll, true);
   p.el.remove(); if (p.onclose) p.onclose();
 }
 function popover(anchor, html, onclose) {
@@ -196,9 +196,10 @@ function popover(anchor, html, onclose) {
   };
   const out = e => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePop(); };
   const key = e => { if (e.key === 'Escape') closePop(); };
-  const scroll = e => { if (!el.contains(e.target)) closePop(); };
-  document.addEventListener('pointerdown', out, true); document.addEventListener('keydown', key, true); addEventListener('resize', closePop); addEventListener('scroll', scroll, true);
-  popState = { el, anchor, out, key, scroll, onclose }; el.place = place; place(); return el;
+  const scroll = e => { if (!el.contains(e.target) && !el.contains(document.activeElement)) closePop(); };
+  const resize = () => { if (el.contains(document.activeElement)) { el.place(); } else closePop(); }; // le clavier mobile redimensionne l'écran : on ne ferme pas pendant la saisie
+  document.addEventListener('pointerdown', out, true); document.addEventListener('keydown', key, true); addEventListener('resize', resize); addEventListener('scroll', scroll, true);
+  popState = { el, anchor, out, key, scroll, resize, onclose }; el.place = place; place(); return el;
 }
 // Champ « nouveau » en ligne : le bouton « + Nouvelle … » se transforme en champ de saisie (rien d'encombrant tant qu'on ne s'en sert pas).
 function inlineNew(el, btn, ph, onCreate) {
