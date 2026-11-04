@@ -5,7 +5,7 @@ const Sync = (() => {
   const FAV_KEY = 'favs.v1', CFG_KEY = 'sync.cfg.v1', VER_KEY = 'sync.ver.v1';
   const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-  // Proxy RSS par défaut pour tous les utilisateurs (vide = aucun). Un proxy saisi dans Réglages le remplace.
+  // Proxy RSS imposé à tous les utilisateurs (non modifiable). Tant qu'il est vide, on garde l'ancien réglage local éventuel.
   const DEFAULT_PROXY = '';
   const cfg = () => load(CFG_KEY, {});          // { code: 'XXXX-XXXX-XXXX-XXXX', proxy: 'https://…' }
   const setCfg = c => save(CFG_KEY, c);
@@ -16,11 +16,11 @@ const Sync = (() => {
   const rawSet = Storage.prototype.setItem;
   // Progression par épisode : fusion entrée par entrée, la plus récente l'emporte.
   const mergeProg = (a, b) => { const o = {}; [a, b].forEach(m => Object.entries(m || {}).forEach(([u, f]) => { const x = o[u] || (o[u] = {}); Object.entries(f).forEach(([k, v]) => { if (!x[k] || (v.at || 0) > (x[k].at || 0)) x[k] = v; }); })); return o; };
-  const settings = () => { const s = {}; SET_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) s[k] = v; }); const p = cfg().proxy; if (p) s.proxy = p; return s; };
+  const settings = () => { const s = {}; SET_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) s[k] = v; }); return s; };
   const setAt = () => +localStorage.getItem(AT_KEY) || 0;
   function applySettings(s) {
     SET_KEYS.forEach(k => { if (k in s) rawSet.call(localStorage, k, s[k]); else localStorage.removeItem(k); });
-    const c = cfg(); if (s.proxy) c.proxy = s.proxy; else delete c.proxy; rawSet.call(localStorage, CFG_KEY, JSON.stringify(c));
+    
   }
   const enabled = () => /^[A-Z0-9]{4}(-[A-Z0-9]{4}){3,7}$/.test((cfg().code || '').toUpperCase());
   const url = () => BASE + cfg().code.toUpperCase();
@@ -92,5 +92,5 @@ const Sync = (() => {
     } catch (e) { setCfg(c); throw e; }
   }
   function leave() { const c = cfg(); delete c.code; setCfg(c); localStorage.removeItem(VER_KEY); }
-  return { onSettings: null, proxy: () => (cfg().proxy || DEFAULT_PROXY).replace(/\/$/, ''), DEFAULT_PROXY, favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
+  return { onSettings: null, proxy: () => (DEFAULT_PROXY || cfg().proxy || '').replace(/\/$/, ''), DEFAULT_PROXY, favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
 })();

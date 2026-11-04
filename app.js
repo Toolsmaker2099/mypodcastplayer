@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.49';
+const APP_VERSION = '2026-11-04.50';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -330,8 +330,6 @@ function renderSettings() {
   view.innerHTML = `<label>Ajouter un flux RSS</label><form id="af" class="row"><input id="rss" placeholder="https://…/feed.xml"><button>Ajouter</button></form><p id="am" class="dim"></p>
   <label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
   <label>Podcast Index (annuaire)</label><input id="pk" value="${esc(piCfg().key || '')}" placeholder="Clé (API Key)" autocomplete="off" autocapitalize="off" spellcheck="false"><input id="ps" type="password" value="${esc(piCfg().secret || '')}" placeholder="Secret" autocomplete="off"><p><button id="pisave">Enregistrer</button></p><p id="pim" class="dim"></p>
-  <label>Proxy RSS (worker, si un flux est bloqué)</label><input id="cu" value="${esc(c.proxy || '')}" placeholder="${esc(Sync.DEFAULT_PROXY || 'https://rss.xxx.workers.dev')}">
-  <p><button id="cs">Enregistrer le proxy</button></p>
   <label>Application</label><p class="dim">Version ${APP_VERSION}</p><p><button id="upd">Forcer la mise à jour</button></p>`;
   $('#upd').onclick = async () => {
     try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); (await caches.keys()).forEach(k => caches.delete(k)); } catch {}
@@ -374,7 +372,6 @@ function renderSettings() {
     try { const n = (await piSearch('france inter')).length; $('#pim').textContent = `OK : ${n} résultats de test.`; searchSrc = 'pi'; localStorage.setItem('src', 'pi'); }
     catch (e) { $('#pim').textContent = 'Échec : ' + e.message; }
   };
-  $('#cs').onclick = () => { Sync.setCfg({ ...Sync.cfg(), proxy: $('#cu').value.trim() }); msg('Proxy enregistré.'); };
 }
 
 // ---------- Lecture (depuis 0 par défaut ; le suivi de lecture est une option par podcast) ----------
