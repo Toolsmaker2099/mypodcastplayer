@@ -6,7 +6,7 @@ const Sync = (() => {
   const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
   // Proxy RSS imposé à tous les utilisateurs (non modifiable). Tant qu'il est vide, on garde l'ancien réglage local éventuel.
-  const DEFAULT_PROXY = '';
+  const DEFAULT_PROXY = 'https://rss-proxy.toolsmaker.workers.dev';
   const cfg = () => load(CFG_KEY, {});          // { code: 'XXXX-XXXX-XXXX-XXXX', proxy: 'https://…' }
   const setCfg = c => save(CFG_KEY, c);
   const favs = () => load(FAV_KEY, []);
