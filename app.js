@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.28';
+const APP_VERSION = '2026-11-04.29';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -10,6 +10,7 @@ async function fetchText(url) {
   const c = Sync.cfg();
   if (!c.proxy) throw new Error('Flux bloqué par CORS : configure le proxy dans Réglages.');
   const r = await fetch(`${c.proxy.replace(/\/$/, '')}/?url=${encodeURIComponent(url)}`);
+  if (r.status === 404 || r.status === 410) throw new Error("Ce flux n'existe plus (erreur " + r.status + ' : adresse périmée ou déplacée).');
   if (!r.ok) throw new Error('Proxy ' + r.status);
   return r.text();
 }
@@ -251,7 +252,14 @@ async function openFeed(f, back) {
       queue = curList.slice(); qi = queue.indexOf(ep); qCtx = { show: feed.title, art: feed.image, feedUrl: feed.feedUrl };
       play(ep, feed.title, feed.image, feed.feedUrl);
     };
-  } catch (err) { view.innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
+  } catch (err) {
+    view.innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p><p><button id="altfeed">Chercher un autre flux (Podcast Index)</button></p><p class="dim">Si ce podcast est dans tes favoris, retrouve-le avec le bouton ci-dessus puis ajoute la nouvelle version.</p>`;
+    $('#altfeed').onclick = () => {
+      if (!piReady()) { alert('Saisis d\'abord ta clé et ton secret Podcast Index dans Réglages.'); return; }
+      try { localStorage.setItem('pi.prefs', JSON.stringify({ ...piPrefs(), mode: 'title' })); localStorage.setItem('src', 'pi'); } catch {}
+      searchSrc = 'pi'; searchQ = f.title || ''; tab = 'search'; render();
+    };
+  }
 }
 function renderSettings() {
   const c = Sync.cfg();
