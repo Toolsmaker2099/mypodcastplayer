@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.18';
+const APP_VERSION = '2026-11-04.19';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -26,6 +26,7 @@ async function loadFeed(feedUrl) {
     desc: plain(ns(it, 'content:encoded') || txt(it, 'description') || ns(it, 'itunes:summary')).slice(0, 700),
     dur: ns(it, 'itunes:duration'),
     url: it.querySelector('enclosure')?.getAttribute('url') || '',
+    image: it.getElementsByTagName('itunes:image')[0]?.getAttribute('href') || '',
   })).filter(e => e.url);
   const feed = {
     feedUrl, title: txt(ch, 'title'), image: img,
@@ -299,13 +300,15 @@ const syncNav = () => { $('#prev').disabled = qi <= 0; $('#next').disabled = qi 
 $('#prev').onclick = () => playAt(qi - 1); $('#next').onclick = () => playAt(qi + 1);
 function play(ep, show, art, feedUrl) {
   syncNav();
-  audio.crossOrigin = nightOn ? 'anonymous' : null;
+  audio.crossOrigin = (nightOn || vizReal) ? 'anonymous' : null;
   audio.src = ep.url; audio.currentTime = 0; audio.play().catch(() => {});
   const skip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
   if (skip > 0) audio.addEventListener('loadedmetadata', () => { if (audio.duration > skip) audio.currentTime = skip; }, { once: true });
+  const cover = (ep.image || art || '').replace(/\d+x\d+bb/, '600x600bb');
+  $('#np-art').src = cover; $('#np-art').style.visibility = cover ? 'visible' : 'hidden';
   $('#player').hidden = false; $('#np-title').textContent = ep.title; $('#np-show').textContent = show;
   if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({ title: ep.title, artist: show, artwork: art ? [{ src: art, sizes: '512x512' }] : [] });
+    navigator.mediaSession.metadata = new MediaMetadata({ title: ep.title, artist: show, artwork: cover ? [{ src: cover, sizes: '512x512' }] : [] });
   }
 }
 audio.addEventListener('play', () => { $('#pp').textContent = '❚❚'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'playing'); });
@@ -417,7 +420,7 @@ render(); checkUpdates(); refreshFavs();
 
 // ---------- Mode nuit (compresseur : atténue les passages forts) ----------
 // Web Audio exige un fichier servi avec CORS ; sinon le son serait coupé. On teste donc avant de brancher le traitement.
-let nightOn = localStorage.getItem('night') === '1', ctx = null, comp = null, makeup = null, nightMsg = '';
+let nightOn = localStorage.getItem('night') === '1', vizReal = localStorage.getItem('vizreal') === '1', ctx = null, comp = null, makeup = null, analyser = null;
 const nightBtn = $('#night');
 const showNight = () => { nightBtn.textContent = nightOn ? '☼ Nuit on' : '☼ Nuit off'; nightBtn.style.color = nightOn ? 'var(--acc)' : ''; };
 function nightParams() {
@@ -430,8 +433,9 @@ function buildGraph() {
   if (ctx) return;
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   const src = ctx.createMediaElementSource(audio);
-  comp = ctx.createDynamicsCompressor(); makeup = ctx.createGain();
-  src.connect(comp); comp.connect(makeup); makeup.connect(ctx.destination);
+  comp = ctx.createDynamicsCompressor(); makeup = ctx.createGain(); analyser = ctx.createAnalyser();
+  analyser.fftSize = 128; analyser.smoothingTimeConstant = 0.75;
+  src.connect(comp); comp.connect(makeup); makeup.connect(analyser); analyser.connect(ctx.destination);
 }
 function reloadCurrent(play) {
   if (!audio.src) return;
@@ -439,31 +443,78 @@ function reloadCurrent(play) {
   audio.src = u; audio.load();
   audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = t; } catch {} if (play) audio.play().catch(() => {}); }, { once: true });
 }
-function nightFailed() {
-  nightOn = false; localStorage.setItem('night', '0'); showNight();
-  alert("Ce podcast n'autorise pas le mode nuit (fichier audio non compatible). Mode nuit désactivé.");
+function graphFailed() {
+  const what = nightOn && vizReal ? 'le mode nuit et les barres réelles' : nightOn ? 'le mode nuit' : 'les barres réelles';
+  nightOn = false; vizReal = false; localStorage.setItem('night', '0'); localStorage.setItem('vizreal', '0'); showNight(); showViz();
+  alert("Ce podcast n'autorise pas le traitement audio (" + what + "). Désactivé.");
   if (ctx) location.reload(); // le son resterait coupé une fois branché : on repart proprement
   else { audio.crossOrigin = null; reloadCurrent(true); }
+}
+// Branche le traitement audio : recharge le fichier avec CORS, puis branche seulement si le chargement réussit.
+function activateGraph() {
+  if (ctx) { ctx.resume(); nightParams(); return; }
+  if (!audio.src) return;
+  const wasPlaying = !audio.paused;
+  audio.crossOrigin = 'anonymous';
+  audio.addEventListener('canplay', () => { buildGraph(); ctx.resume(); nightParams(); }, { once: true });
+  reloadCurrent(wasPlaying);
 }
 nightBtn.onclick = () => {
   nightOn = !nightOn; localStorage.setItem('night', nightOn ? '1' : '0'); showNight();
   if (!nightOn) { nightParams(); return; }
-  if (audio.src && !ctx) { // première activation : recharger avec CORS puis brancher si OK
-    const wasPlaying = !audio.paused;
-    audio.crossOrigin = 'anonymous';
-    audio.addEventListener('canplay', () => { buildGraph(); ctx.resume(); nightParams(); }, { once: true });
-    reloadCurrent(wasPlaying);
-  } else { if (ctx) ctx.resume(); nightParams(); }
+  activateGraph();
 };
-audio.addEventListener('error', () => { if (nightOn && audio.src) nightFailed(); });
-audio.addEventListener('canplay', () => { if (nightOn && !ctx && audio.crossOrigin) { buildGraph(); ctx.resume(); nightParams(); } else if (ctx) ctx.resume(); });
-showNight();
+const vizBtn = $('#vizreal');
+const showViz = () => { vizBtn.textContent = vizReal ? '▮▮ Barres réelles : oui' : '▮▮ Barres réelles : non'; vizBtn.style.color = vizReal ? 'var(--acc)' : ''; };
+vizBtn.onclick = () => { vizReal = !vizReal; localStorage.setItem('vizreal', vizReal ? '1' : '0'); showViz(); if (vizReal) activateGraph(); };
+audio.addEventListener('error', () => { if ((nightOn || vizReal) && audio.src) graphFailed(); });
+audio.addEventListener('canplay', () => { if ((nightOn || vizReal) && !ctx && audio.crossOrigin) { buildGraph(); ctx.resume(); nightParams(); } else if (ctx) ctx.resume(); });
+showNight(); showViz();
 
-// ---------- Mini-lecteur (réduit : la lecture continue pendant la navigation) ----------
+// ---------- Modes du lecteur : normal / réduit (mini) / plein écran avec visualiseur ----------
 (() => {
-  const pl = $('#player'), btn = $('#collapse');
-  const set = mini => { pl.classList.toggle('mini', mini); btn.textContent = mini ? '⌃' : '⌄'; btn.setAttribute('aria-label', mini ? 'Agrandir le lecteur' : 'Réduire le lecteur'); try { localStorage.setItem('mini', mini ? '1' : '0'); } catch {} };
-  set(localStorage.getItem('mini') === '1');
-  btn.onclick = () => set(!pl.classList.contains('mini'));
-  $('.np').onclick = () => { if (pl.classList.contains('mini')) set(false); };
+  const pl = $('#player'), btn = $('#collapse'), exp = $('#expand');
+  let mode = 'normal'; try { mode = localStorage.getItem('pmode') === 'mini' ? 'mini' : 'normal'; } catch {}
+  const set = m => {
+    mode = m;
+    pl.classList.toggle('mini', m === 'mini'); pl.classList.toggle('full', m === 'full');
+    document.body.classList.toggle('noscroll', m === 'full');
+    btn.textContent = m === 'mini' ? '⌃' : '⌄';
+    btn.setAttribute('aria-label', m === 'normal' ? 'Réduire le lecteur' : m === 'mini' ? 'Agrandir le lecteur' : 'Fermer le plein écran');
+    if (m !== 'full') { try { localStorage.setItem('pmode', m); } catch {} }
+    m === 'full' ? startViz() : stopViz();
+  };
+  btn.onclick = () => set(mode === 'normal' ? 'mini' : 'normal');
+  exp.onclick = () => set('full');
+  $('.np').onclick = () => { if (mode === 'mini') set('normal'); };
+  set(mode);
+
+  // Visualiseur : vraies fréquences si le traitement audio est branché (CORS), sinon animation synchronisée à la lecture.
+  const cv = $('#viz'), g = cv.getContext('2d'), N = 28;
+  let raf = 0, levels = new Array(N).fill(0), data = null;
+  function frame(t) {
+    raf = requestAnimationFrame(frame);
+    const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    const playing = !audio.paused && !audio.ended;
+    const real = !!analyser && ctx && ctx.state === 'running' && playing;
+    if (real) { data = data || new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data); }
+    for (let i = 0; i < N; i++) {
+      let target;
+      if (real) { const lo = Math.floor(Math.pow(i / N, 1.6) * (data.length - 6)), v = Math.max(data[lo], data[lo + 1], data[lo + 2]); target = Math.pow(v / 255, 1.3); }
+      else if (playing) target = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(t / 260 + i * 0.7)) + 0.25 * (0.5 + 0.5 * Math.sin(t / 130 + i * 1.9)) * (0.6 + 0.4 * Math.sin(t / 900 + i));
+      else target = 0.04;
+      levels[i] += (target - levels[i]) * (target > levels[i] ? 0.5 : 0.12);
+    }
+    const bw = w / N, grad = g.createLinearGradient(0, h, 0, 0);
+    grad.addColorStop(0, '#9bb0ff'); grad.addColorStop(1, '#c3a6ff'); g.fillStyle = grad;
+    for (let i = 0; i < N; i++) {
+      const bh = Math.max(4, levels[i] * h), x = i * bw + bw * 0.18, ww = bw * 0.64, y = (h - bh) / 2;
+      g.beginPath(); (g.roundRect ? g.roundRect(x, y, ww, bh, ww / 2) : g.rect(x, y, ww, bh)); g.fill();
+    }
+  }
+  function startViz() { if (!raf) raf = requestAnimationFrame(frame); }
+  function stopViz() { cancelAnimationFrame(raf); raf = 0; }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopViz(); else if (mode === 'full') startViz(); });
 })();

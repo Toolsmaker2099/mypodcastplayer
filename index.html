@@ -23,6 +23,9 @@
 
 <div id="player" hidden>
   <button id="collapse" aria-label="Réduire le lecteur">⌄</button>
+  <button id="expand" aria-label="Plein écran">⤢</button>
+  <img id="np-art" alt="" style="visibility:hidden">
+  <canvas id="viz"></canvas>
   <div class="np"><div id="np-title"></div><div id="np-show"></div></div>
   <div class="ctl">
     <button id="prev" aria-label="Épisode précédent">⏮</button>
@@ -34,6 +37,7 @@
   <div class="ctl opts">
     <button id="night" aria-label="Mode nuit">☼ Nuit off</button>
     <button id="sleep" aria-label="Minuterie">☾ Off</button>
+    <button id="vizreal" aria-label="Barres réelles">▮▮ Barres réelles : non</button>
   </div>
   <div class="times"><span id="t-cur">0:00</span><span id="t-tot">Total 0:00</span><span id="t-rem">-0:00</span></div>
   <input id="seek" type="range" min="0" max="0" value="0" step="any">
