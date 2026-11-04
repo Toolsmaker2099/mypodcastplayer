@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.16';
+const APP_VERSION = '2026-11-04.17';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -93,11 +93,30 @@ async function piGet(path) {
   return (await r.json()).feeds || [];
 }
 const piSearch = q => piGet(`search/byterm?max=100&q=${encodeURIComponent(q)}`);
+const CAT_FR = {
+  'Arts': 'Arts', 'Design': 'Design', 'Fashion & Beauty': 'Mode et beauté', 'Food': 'Cuisine', 'Books': 'Livres', 'Performing Arts': 'Spectacle vivant', 'Visual Arts': 'Arts visuels',
+  'Business': 'Économie et affaires', 'Careers': 'Carrières', 'Entrepreneurship': 'Entrepreneuriat', 'Investing': 'Investissement', 'Management': 'Management', 'Marketing': 'Marketing', 'Non-Profit': 'Associatif',
+  'Comedy': 'Humour', 'Comedy Interviews': 'Interviews humoristiques', 'Improv': 'Improvisation', 'Stand-Up': 'Stand-up',
+  'Education': 'Éducation', 'Courses': 'Cours', 'How-To': 'Tutoriels', 'Language Learning': 'Langues', 'Self-Improvement': 'Développement personnel',
+  'Fiction': 'Fiction', 'Comedy Fiction': 'Fiction humoristique', 'Drama': 'Drame', 'Science Fiction': 'Science-fiction',
+  'Government': 'Gouvernement', 'History': 'Histoire',
+  'Health & Fitness': 'Santé et forme', 'Alternative Health': 'Santé alternative', 'Fitness': 'Fitness', 'Medicine': 'Médecine', 'Mental Health': 'Santé mentale', 'Nutrition': 'Nutrition', 'Sexuality': 'Sexualité',
+  'Kids & Family': 'Enfants et famille', 'Education for Kids': 'Éducation des enfants', 'Parenting': 'Parentalité', 'Pets & Animals': 'Animaux', 'Stories for Kids': 'Histoires pour enfants',
+  'Leisure': 'Loisirs', 'Animation & Manga': 'Animation et manga', 'Automotive': 'Automobile', 'Aviation': 'Aviation', 'Crafts': 'Loisirs créatifs', 'Games': 'Jeux', 'Hobbies': 'Passe-temps', 'Home & Garden': 'Maison et jardin', 'Video Games': 'Jeux vidéo',
+  'Music': 'Musique', 'Music Commentary': 'Commentaires musicaux', 'Music History': 'Histoire de la musique', 'Music Interviews': 'Interviews musicales',
+  'News': 'Actualités', 'Business News': 'Actualité économique', 'Daily News': 'Actualité quotidienne', 'Entertainment News': 'Actualité culturelle', 'News Commentary': 'Commentaires d’actualité', 'Politics': 'Politique', 'Sports News': 'Actualité sportive', 'Tech News': 'Actualité tech',
+  'Religion & Spirituality': 'Religion et spiritualité', 'Buddhism': 'Bouddhisme', 'Christianity': 'Christianisme', 'Hinduism': 'Hindouisme', 'Islam': 'Islam', 'Judaism': 'Judaïsme', 'Religion': 'Religion', 'Spirituality': 'Spiritualité',
+  'Science': 'Sciences', 'Astronomy': 'Astronomie', 'Chemistry': 'Chimie', 'Earth Sciences': 'Sciences de la Terre', 'Life Sciences': 'Sciences de la vie', 'Mathematics': 'Mathématiques', 'Natural Sciences': 'Sciences naturelles', 'Nature': 'Nature', 'Physics': 'Physique', 'Social Sciences': 'Sciences sociales',
+  'Society & Culture': 'Société et culture', 'Documentary': 'Documentaire', 'Personal Journals': 'Journaux personnels', 'Philosophy': 'Philosophie', 'Places & Travel': 'Lieux et voyages', 'Relationships': 'Relations',
+  'Sports': 'Sport', 'Baseball': 'Baseball', 'Basketball': 'Basket-ball', 'Cricket': 'Cricket', 'Fantasy Sports': 'Sports fantasy', 'Football': 'Football américain', 'Golf': 'Golf', 'Hockey': 'Hockey', 'Rugby': 'Rugby', 'Running': 'Course à pied', 'Soccer': 'Football', 'Swimming': 'Natation', 'Tennis': 'Tennis', 'Volleyball': 'Volley-ball', 'Wilderness': 'Plein air', 'Wrestling': 'Catch',
+  'Technology': 'Technologie', 'True Crime': 'Faits divers', 'TV & Film': 'Télévision et cinéma', 'After Shows': 'Après-émissions', 'Film History': 'Histoire du cinéma', 'Film Interviews': 'Interviews cinéma', 'Film Reviews': 'Critiques de films', 'TV Reviews': 'Critiques de séries',
+};
+const catFr = c => CAT_FR[c] || c;
 let piCats = null;
 const piCategories = async () => piCats || (piCats = (await piGet('categories/list')).map(c => c.name).sort((x, y) => x.localeCompare(y, 'fr')));
 const piPrefs = () => { try { return { mode: 'search', lang: 'fr', cat: '', sort: 'rel', ...JSON.parse(localStorage.getItem('pi.prefs')) }; } catch { return { mode: 'search', lang: 'fr', cat: '', sort: 'rel' }; } };
 const piMap = x => ({ feedUrl: x.url, title: x.title, image: x.artwork || x.image, author: x.author || x.ownerName,
-  genre: Object.values(x.categories || {})[0] || '', count: x.episodeCount, last: (x.newestItemPubdate || x.newestItemPublishTime) ? new Date((x.newestItemPubdate || x.newestItemPublishTime) * 1000).toISOString() : '', desc: (x.description || '').replace(/<[^>]*>/g, '').slice(0, 300) });
+  genre: catFr(Object.values(x.categories || {})[0] || ''), count: x.episodeCount, last: (x.newestItemPubdate || x.newestItemPublishTime) ? new Date((x.newestItemPubdate || x.newestItemPublishTime) * 1000).toISOString() : '', desc: (x.description || '').replace(/<[^>]*>/g, '').slice(0, 300) });
 let searchSrc = localStorage.getItem('src') || '';
 const PRODUCERS = [
   ['France Inter', /france inter/i], ['France Culture', /france culture/i], ['franceinfo', /franceinfo|france info/i],
@@ -174,7 +193,7 @@ function renderSearch() {
     $('#pimode').value = p.mode; $('#pilang').value = p.lang; $('#pisort').value = p.sort;
     const save = () => { try { localStorage.setItem('pi.prefs', JSON.stringify({ mode: $('#pimode').value, lang: $('#pilang').value, cat: $('#picat').value, sort: $('#pisort').value })); } catch {} run(); };
     ['pimode', 'pilang', 'picat', 'pisort'].forEach(id => $('#' + id).onchange = save);
-    piCategories().then(cs => { $('#picat').innerHTML = '<option value="">Toutes catégories</option>' + cs.map(c => `<option>${esc(c)}</option>`).join(''); $('#picat').value = p.cat; }).catch(() => {});
+    piCategories().then(cs => { $('#picat').innerHTML = '<option value="">Toutes catégories</option>' + cs.map(c => ({ c, l: catFr(c) })).sort((x, y) => x.l.localeCompare(y.l, 'fr')).map(({ c, l }) => `<option value="${esc(c)}">${esc(l)}</option>`).join(''); $('#picat').value = p.cat; }).catch(() => {});
   }
   if (searchQ || searchProd || (searchSrc === 'pi' && piPrefs().mode !== 'search')) run();
 }
