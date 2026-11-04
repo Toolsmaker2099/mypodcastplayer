@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.4';
+const APP_VERSION = '2026-11-04.5';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

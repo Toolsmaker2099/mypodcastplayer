@@ -1,6 +1,6 @@
 {
-  "name": "Podcasts pour dormir",
-  "short_name": "Dodo",
+  "name": "Podcasts",
+  "short_name": "Podcasts",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

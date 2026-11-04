@@ -1,4 +1,4 @@
-# Podcasts pour dormir (PWA)
+# Podcasts (PWA)
 
 PWA statique : favoris RSS, recherche iTunes, minuterie d'arrêt optionnelle, lecture écran verrouillé (Media Session). La progression de lecture n'est jamais mémorisée.
 
