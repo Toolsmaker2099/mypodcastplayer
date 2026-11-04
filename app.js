@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.9';
+const APP_VERSION = '2026-11-04.10';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -73,21 +73,40 @@ function renderFavs() {
   view.innerHTML = l.length ? l.map(f => showItem(f, false)).join('') : '<p class="dim">Aucun favori. Utilise la recherche ou ajoute un flux RSS dans Réglages.</p>';
   view.querySelectorAll('.item').forEach((el, i) => el.onclick = () => openFeed(l[i]));
 }
+const PRODUCERS = [
+  ['France Inter', /france inter/i], ['France Culture', /france culture/i], ['franceinfo', /franceinfo|france info/i],
+  ['France TV', /france t[ée]l[ée]visions|france\.?\s?tv/i], ['Radio France', /radio france|france (inter|culture|info|bleu|musique)|\bmouv|\bfip\b/i],
+  ['RTL', /\brtl\b/i], ['Europe 1', /europe 1/i], ['RFI', /\brfi\b|radio france internationale/i], ['Arte', /\barte\b/i],
+];
+let searchProd = '', searchQ = '';
 function renderSearch() {
-  view.innerHTML = '<form id="sf" class="row"><input type="search" id="q" placeholder="Rechercher un podcast…"><button>OK</button></form><div id="res"></div>';
-  $('#sf').onsubmit = async e => {
-    e.preventDefault();
-    const q = $('#q').value.trim(); if (!q) return;
+  view.innerHTML = `<form id="sf" class="row"><input type="search" id="q" placeholder="Rechercher un podcast…" value="${esc(searchQ)}"><button>OK</button></form>
+    <div class="chips">${PRODUCERS.map(([n]) => `<button type="button" class="chip${n === searchProd ? ' on' : ''}" data-p="${esc(n)}">${esc(n)}</button>`).join('')}</div><div id="res"></div>`;
+  const run = async () => {
+    const q = $('#q').value.trim(); searchQ = q;
+    const prod = PRODUCERS.find(p => p[0] === searchProd);
+    if (!q && !prod) { $('#res').innerHTML = ''; return; }
     $('#res').innerHTML = '<p class="dim">Recherche…</p>';
     try {
-      const r = await (await fetch(`https://itunes.apple.com/search?media=podcast&limit=25&country=fr&term=${encodeURIComponent(q)}`)).json();
-      const list = r.results.filter(x => x.feedUrl).map(x => ({ feedUrl: x.feedUrl, title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
+      const url = q ? `https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`
+                    : `https://itunes.apple.com/search?media=podcast&limit=200&country=fr&attribute=artistTerm&term=${encodeURIComponent(prod[0])}`;
+      const r = await (await fetch(url)).json();
+      let res = r.results.filter(x => x.feedUrl);
+      if (prod) res = res.filter(x => prod[1].test(x.artistName || '') || prod[1].test(x.collectionName || ''));
+      const list = res.slice(0, 50).map(x => ({ feedUrl: x.feedUrl, title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
       $('#res').innerHTML = list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat.</p>';
       $('#res').querySelectorAll('.item').forEach((el, i) => {
         el.onclick = ev => { if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; } else openFeed(list[i], () => render()); };
       });
     } catch (err) { $('#res').innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
   };
+  $('#sf').onsubmit = e => { e.preventDefault(); run(); };
+  view.querySelectorAll('.chip').forEach(b => b.onclick = () => {
+    searchProd = searchProd === b.dataset.p ? '' : b.dataset.p;
+    view.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x.dataset.p === searchProd));
+    run();
+  });
+  if (searchQ || searchProd) run();
 }
 async function openFeed(f, back) {
   setTitle(f.title, back || (() => render()));
