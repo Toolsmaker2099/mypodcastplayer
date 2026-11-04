@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.92';
+const APP_VERSION = '2026-11-04.93';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -554,7 +554,7 @@ function renderAdd() {
 const feedFromTextSafe = t => { try { return typeof feedFromText === 'function' ? feedFromText(t) : (/^https?:\/\//i.test(t.trim()) ? { feedUrl: t.trim(), title: '' } : null); } catch { return null; } };
 function renderSettings() {
   const c = Sync.cfg();
-  view.innerHTML = `<label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
+  view.innerHTML = `<label>Sauvegarde en ligne</label><div id="bk"></div><p id="cm" class="dim"></p>
   <label>Application</label><p class="dim">Version ${APP_VERSION}</p>${isInstalled() ? '<p class="dim">✓ Application installée sur cet appareil</p>' : '<p><button id="inst-set" type="button">Installer l\'app</button></p>'}<p><button id="upd">Forcer la mise à jour</button></p><label>Mes données</label><p><button id="opml-x" type="button">Exporter mes favoris (OPML)</button></p>`;
   $('#opml-x').onclick = opmlExport;
   if ($('#inst-set')) { $('#inst-set').onclick = installApp; refreshInstallUi(); }
