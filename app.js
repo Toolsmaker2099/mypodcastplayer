@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.84';
+const APP_VERSION = '2026-11-04.85';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -127,7 +127,7 @@ function askName(title, value = '') {
 }
 function renderFavs() {
   const ft = ['pl', 'q', 'dl', 'new'].includes(localStorage.getItem('favtab')) ? localStorage.getItem('favtab') : 'pod', nn = newTotal(), qn = qGet().length;
-  const head = `<div class="scrollx">${seg('favseg', [['pod', 'Podcasts'], ['new', 'Nouveautés' + (nn ? ' · ' + nn : '')], ['q', 'À écouter' + (qn ? ' · ' + qn : '')], ['pl', 'Playlists'], ['dl', 'Hors ligne']], ft)}</div>`;
+  const head = `<div class="favsegw">${seg('favseg', [['pod', 'Podcasts'], ['new', 'Nouveautés' + (nn ? ' · ' + nn : '')], ['q', 'À écouter' + (qn ? ' · ' + qn : '')], ['pl', 'Playlists'], ['dl', 'Hors ligne']], ft)}</div>`;
   if (ft === 'q') { renderQueue(head); return; }
   if (ft === 'new') { renderNew(head); return; }
   if (ft === 'dl') { renderDownloads(head); return; }

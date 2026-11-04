@@ -301,3 +301,5 @@ nav button{position:relative}.bdg{position:absolute;top:4px;right:calc(50% - 30p
 .ibtn.dlb{font-size:13px}.ibtn.dlb.on{color:#6ee7a8;border-color:rgba(110,231,168,.5)}
 nav button{white-space:nowrap;padding-left:6px;padding-right:6px}@media(max-width:480px){nav button{font-size:13px}}
 nav .bdg{right:2px;top:1px}
+.favsegw{margin:10px 0 0}.favsegw #favseg{display:flex;flex-wrap:wrap;width:100%;border-radius:16px;gap:4px}.favsegw #favseg button{flex:1 1 30%;min-width:0;padding:9px 6px;font-size:13.5px;overflow:hidden;text-overflow:ellipsis}
+@media(min-width:640px){.favsegw #favseg button{flex:1 1 0}}
