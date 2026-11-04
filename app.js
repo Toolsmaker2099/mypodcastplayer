@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.36';
+const APP_VERSION = '2026-11-04.37';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -523,7 +523,15 @@ nightBtn.onclick = () => {
   activateGraph();
 };
 const vizBtn = $('#vizreal');
-const showViz = () => { vizBtn.innerHTML = labeled(IC.eq, 'Visualiseur'); vizBtn.classList.toggle('on', vizReal); vizBtn.setAttribute('aria-pressed', vizReal); };
+function vizNote() {
+  const n = $('#viz-note'); if (!n) return;
+  const bad = audio.src && corsBad.has(hostOf(audio.src));
+  n.textContent = !vizReal ? "Visualiseur : animation simple. Touche « Visualiseur » pour suivre le vrai son."
+    : bad ? "Ce podcast n'autorise pas l'analyse du son : animation simple."
+    : (analyser && ctx && ctx.state === 'running') ? 'Visualiseur synchronisé sur le son du podcast.' : (audio.src ? 'Activation du visualiseur…' : 'Lance un épisode pour voir le visualiseur.');
+}
+setInterval(vizNote, 700);
+const showViz = () => { vizNote(); vizBtn.innerHTML = labeled(IC.eq, 'Visualiseur'); vizBtn.classList.toggle('on', vizReal); vizBtn.setAttribute('aria-pressed', vizReal); };
 vizBtn.onclick = () => { vizReal = !vizReal; localStorage.setItem('vizreal', vizReal ? '1' : '0'); showViz(); if (vizReal) activateGraph(); };
 audio.addEventListener('error', () => {
   if (!audio.src) return;
@@ -559,7 +567,7 @@ showNight(); showViz();
     if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
     const playing = !audio.paused && !audio.ended;
-    const real = !!analyser && ctx && ctx.state === 'running' && playing;
+    const real = vizReal && !!analyser && ctx && ctx.state === 'running' && playing;
     if (real) { data = data || new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data); }
     // Échelle logarithmique 60 Hz – 8 kHz (la voix n'a presque rien au-dessus), avec gain automatique pour que toutes les barres vivent
     let raw = null;
@@ -602,7 +610,7 @@ showNight(); showViz();
   function tick() {
     requestAnimationFrame(tick);
     if (document.hidden || pl.hidden) return;
-    const live = !!analyser && !!ctx && ctx.state === 'running' && !audio.paused && !pl.classList.contains('full');
+    const live = vizReal && !!analyser && !!ctx && ctx.state === 'running' && !audio.paused && !pl.classList.contains('full');
     pl.classList.toggle('live', live);
     if (!live) { if (bars[0].style.height) bars.forEach(b => (b.style.height = '')); return; }
     buf = buf || new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(buf);
