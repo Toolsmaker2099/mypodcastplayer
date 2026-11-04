@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.35';
+const APP_VERSION = '2026-11-04.36';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -8,6 +8,10 @@ const IC = {
   playBig: svg('<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>', 28, true),
   pause: svg('<rect x="6" y="5" width="4.5" height="14" rx="1.3"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.3"/>', 28, true),
 };
+IC.moon = svg('<path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/>', 17);
+IC.timer = svg('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5"/>', 17);
+IC.eq = svg('<path d="M5 14v4M9 6v12M13 10v8M17 4v14M21 12v6"/>', 17);
+const labeled = (ic, t) => `${ic}<span>${t}</span>`;
 const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Favori" aria-pressed="${on}">${IC.star}</button>`;
 const setStar = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
 const audio = $('#audio'), view = $('#view');
@@ -412,7 +416,7 @@ $('#sleep').onclick = () => {
 };
 function setSleep(min) {
   clearTimeout(sleepT); sleepEnd = min ? Date.now() + min * 60000 : 0;
-  $('#sleep').textContent = min ? `☾ ${min} min` : '☾ Minuteur'; $('#sleep').classList.toggle('on', !!min);
+  $('#sleep').innerHTML = labeled(IC.timer, min ? `${min} min` : 'Minuteur'); $('#sleep').classList.toggle('on', !!min);
   if (min) sleepT = setTimeout(checkSleep, min * 60000 + 100);
 }
 function checkSleep() {
@@ -476,7 +480,7 @@ render(); checkUpdates(); refreshFavs();
 // Web Audio exige un fichier servi avec CORS ; sinon le son serait coupé. On teste donc avant de brancher le traitement.
 let nightOn = localStorage.getItem('night') === '1', vizReal = localStorage.getItem('vizreal') === '1', ctx = null, comp = null, makeup = null, analyser = null;
 const nightBtn = $('#night');
-const showNight = () => { nightBtn.textContent = '☼ Nuit'; nightBtn.classList.toggle('on', nightOn); nightBtn.setAttribute('aria-pressed', nightOn); };
+const showNight = () => { nightBtn.innerHTML = labeled(IC.moon, 'Nuit'); nightBtn.classList.toggle('on', nightOn); nightBtn.setAttribute('aria-pressed', nightOn); };
 function nightParams() {
   if (!comp) return;
   comp.threshold.value = nightOn ? -45 : 0; comp.ratio.value = nightOn ? 12 : 1;
@@ -519,7 +523,7 @@ nightBtn.onclick = () => {
   activateGraph();
 };
 const vizBtn = $('#vizreal');
-const showViz = () => { vizBtn.textContent = '▮▮ Barres'; vizBtn.classList.toggle('on', vizReal); vizBtn.setAttribute('aria-pressed', vizReal); };
+const showViz = () => { vizBtn.innerHTML = labeled(IC.eq, 'Visualiseur'); vizBtn.classList.toggle('on', vizReal); vizBtn.setAttribute('aria-pressed', vizReal); };
 vizBtn.onclick = () => { vizReal = !vizReal; localStorage.setItem('vizreal', vizReal ? '1' : '0'); showViz(); if (vizReal) activateGraph(); };
 audio.addEventListener('error', () => {
   if (!audio.src) return;
@@ -611,3 +615,5 @@ showNight(); showViz();
   }
   requestAnimationFrame(tick);
 })();
+
+$('#sleep').innerHTML = labeled(IC.timer, 'Minuteur');
