@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.5';
+const APP_VERSION = '2026-11-04.6';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -98,7 +98,10 @@ async function openFeed(f, back) {
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
       <p class="d full">${esc(feed.desc)}</p><p><button id="fav">${isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'}</button></p>` +
       `<div class="filters"><select id="ord"><option value="desc">Plus récents d'abord</option><option value="asc">Plus anciens d'abord</option></select>
-        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select></div><div id="eps"></div>`;
+        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><button id="chain" type="button"></button></div><div id="eps"></div>`;
+    const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
+    $('#chain').onclick = () => { chain = !chain; try { localStorage.setItem('chain', chain ? '1' : '0'); } catch {} showChain(); };
+    showChain();
     const prefs = () => { try { return { order: 'desc', min: 0, ...JSON.parse(localStorage.getItem('epprefs')) }; } catch { return { order: 'desc', min: 0 }; } };
     const p0 = prefs(); $('#ord').value = p0.order; $('#mind').value = String(p0.min);
     const drawEps = () => {
@@ -107,6 +110,7 @@ async function openFeed(f, back) {
       let list = feed.episodes.map((e, i) => ({ e, i, t: Date.parse(e.date) || 0 }));
       if (p.min) list = list.filter(x => !durSec(x.e.dur) || durSec(x.e.dur) >= p.min * 60); // durée inconnue : conservé
       list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
+      curList = list.slice(0, 150).map(x => x.e);
       $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="star" data-more aria-label="Détails">⌄</button><button class="star">▶</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
     $('#ord').onchange = $('#mind').onchange = drawEps; drawEps();
@@ -114,7 +118,9 @@ async function openFeed(f, back) {
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
-      play(feed.episodes[el.dataset.i], feed.title, feed.image);
+      const ep = feed.episodes[el.dataset.i];
+      queue = curList.slice(); qi = queue.indexOf(ep); qCtx = { show: feed.title, art: feed.image };
+      play(ep, feed.title, feed.image);
     };
   } catch (err) { view.innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
 }
@@ -162,6 +168,9 @@ function renderSettings() {
 }
 
 // ---------- Lecture (toujours depuis 0, rien n'est mémorisé) ----------
+let chain = localStorage.getItem('chain') === '1', curList = [], queue = [], qi = -1, qCtx = null;
+function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; play(queue[i], qCtx.show, qCtx.art); return true; }
+audio.addEventListener('ended', () => { if (chain) playAt(qi + 1); });
 function play(ep, show, art) {
   audio.crossOrigin = nightOn ? 'anonymous' : null;
   audio.src = ep.url; audio.currentTime = 0; audio.play().catch(() => {});
@@ -184,6 +193,7 @@ if ('mediaSession' in navigator) {
   h('play', () => audio.play()); h('pause', () => audio.pause());
   h('seekbackward', () => skip(-15)); h('seekforward', () => skip(30));
   h('stop', () => audio.pause());
+  h('nexttrack', () => playAt(qi + 1)); h('previoustrack', () => playAt(qi - 1));
 }
 
 // ---------- Minuterie d'arrêt (désactivée par défaut, non persistée) ----------
