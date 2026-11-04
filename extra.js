@@ -29,7 +29,8 @@ async function dlInit() {
   try { const all = await dlTx('readonly', s => s.getAll()); all.forEach(r => { dlObj.set(r.url, URL.createObjectURL(r.blob)); const { blob, ...m } = r; dlMeta.set(r.url, m); }); dlRefresh(); } catch {}
 }
 const dlLabel = u => dlBusy.has(u) ? '⏳ ' + Math.round(dlBusy.get(u) * 100) + ' %' : dlObj.has(u) ? '✓ Téléchargé · supprimer' : '⬇ Télécharger';
-function dlRefresh(u) { document.querySelectorAll('[data-dl][data-u]').forEach(b => { if (!u || b.dataset.u === u) b.innerHTML = dlLabel(b.dataset.u); }); }
+const dlIcon = u => dlBusy.has(u) ? Math.round(dlBusy.get(u) * 100) + '%' : dlObj.has(u) ? '✓' : '⬇';
+function dlRefresh(u) { document.querySelectorAll('[data-dl][data-u]').forEach(b => { if (u && b.dataset.u !== u) return; const x = b.dataset.u; b.innerHTML = b.classList.contains('dlb') ? dlIcon(x) : dlLabel(x); b.classList.toggle('on', dlObj.has(x)); b.title = dlObj.has(x) ? 'Téléchargé : touche pour supprimer' : 'Télécharger pour écouter hors ligne'; }); }
 async function dlFetch(u, onProg) {
   const px = Sync.proxy(), tries = [u, px ? px + '/?url=' + encodeURIComponent(u) : null].filter(Boolean); let last;
   for (const t of tries) {
@@ -69,7 +70,8 @@ async function dlAutoRun() {
     const auto = xget('dl.auto.v1', {});
     for (const [fu, n] of Object.entries(auto)) {
       const feed = feedCache.get(fu); if (!feed || !n) continue;
-      const newest = feed.episodes.slice().sort((a, b) => epTime(b) - epTime(a)).slice(0, +n);
+      const since = n && n.new ? n.new : 0; // « nouveaux épisodes » : ceux parus après l'activation
+      const newest = feed.episodes.slice().sort((a, b) => epTime(b) - epTime(a)).filter(e => !since || epTime(e) > since).slice(0, since ? 10 : +n);
       for (const e of newest) await dlAdd(epSnap(e, feed), true);
       const keep = new Set(newest.map(e => e.url));
       for (const [u, m] of dlMeta) if (m.auto && m.feed === fu && !keep.has(u)) await dlRemove(u);
