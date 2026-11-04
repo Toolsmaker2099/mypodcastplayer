@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.96';
+const APP_VERSION = '2026-11-04.97';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -180,7 +180,7 @@ const plTotal = p => { const s = p.items.reduce((t, x) => t + durSec(x.dur), 0);
 let popState = null;
 function closePop() {
   if (!popState) return; const p = popState; popState = null;
-  document.removeEventListener('pointerdown', p.out, true); document.removeEventListener('keydown', p.key, true); removeEventListener('resize', p.resize); removeEventListener('scroll', p.scroll, true);
+  document.removeEventListener('pointerdown', p.out, true); document.removeEventListener('keydown', p.key, true); removeEventListener('resize', p.resize); if (window.visualViewport) { visualViewport.removeEventListener('resize', p.resize); visualViewport.removeEventListener('scroll', p.resize); } removeEventListener('scroll', p.scroll, true);
   p.el.remove(); if (p.onclose) p.onclose();
 }
 function popover(anchor, html, onclose) {
@@ -190,6 +190,10 @@ function popover(anchor, html, onclose) {
   const place = () => {
     const r = anchor.getBoundingClientRect(), w = Math.min(320, innerWidth - 16); el.style.width = w + 'px';
     el.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+    const vv = window.visualViewport;
+    if (vv && vv.height < innerHeight - 120 && el.contains(document.activeElement)) { // clavier ouvert pendant la saisie : le menu se colle en haut de la zone visible
+      el.style.bottom = 'auto'; el.style.top = (vv.offsetTop + 8) + 'px'; el.style.maxHeight = Math.max(140, vv.height - 16) + 'px'; return;
+    }
     const h = el.scrollHeight, below = innerHeight - r.bottom - 12;
     if (h > below && r.top > below) { el.style.top = 'auto'; el.style.bottom = (innerHeight - r.top + 6) + 'px'; el.style.maxHeight = Math.max(160, r.top - 16) + 'px'; }
     else { el.style.bottom = 'auto'; el.style.top = (r.bottom + 6) + 'px'; el.style.maxHeight = Math.max(180, below) + 'px'; }
@@ -198,13 +202,13 @@ function popover(anchor, html, onclose) {
   const key = e => { if (e.key === 'Escape') closePop(); };
   const scroll = e => { if (!el.contains(e.target) && !el.contains(document.activeElement)) closePop(); };
   const resize = () => { if (el.contains(document.activeElement)) { el.place(); } else closePop(); }; // le clavier mobile redimensionne l'écran : on ne ferme pas pendant la saisie
-  document.addEventListener('pointerdown', out, true); document.addEventListener('keydown', key, true); addEventListener('resize', resize); addEventListener('scroll', scroll, true);
+  document.addEventListener('pointerdown', out, true); document.addEventListener('keydown', key, true); addEventListener('resize', resize); addEventListener('scroll', scroll, true); if (window.visualViewport) { visualViewport.addEventListener('resize', resize); visualViewport.addEventListener('scroll', resize); }
   popState = { el, anchor, out, key, scroll, resize, onclose }; el.place = place; place(); return el;
 }
 // Champ « nouveau » en ligne : le bouton « + Nouvelle … » se transforme en champ de saisie (rien d'encombrant tant qu'on ne s'en sert pas).
 function inlineNew(el, btn, ph, onCreate) {
   const f = document.createElement('form'); f.className = 'pnewi'; f.innerHTML = `<input maxlength="40" placeholder="${ph}" autocomplete="off"><button class="pok" type="submit">Créer</button>`;
-  btn.replaceWith(f); el.place(); const inp = f.querySelector('input'); inp.focus({ preventScroll: true });
+  btn.replaceWith(f); el.place(); const inp = f.querySelector('input'); inp.focus({ preventScroll: true }); inp.addEventListener('focus', () => setTimeout(() => el.place(), 300)); setTimeout(() => el.place(), 350);
   f.onsubmit = e => { e.preventDefault(); const v = inp.value.trim(); if (v) onCreate(v); };
 }
 function playlistPicker(snaps, anchor) { // ajoute des épisodes à une playlist (ou en crée une)
