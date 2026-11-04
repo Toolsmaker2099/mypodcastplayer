@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.42';
+const APP_VERSION = '2026-11-04.43';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -260,23 +260,30 @@ async function openFeed(f, back) {
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
       <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button></p>` +
       `<div class="filters"><select id="ord"><option value="desc">Récents d'abord</option><option value="asc">Anciens d'abord</option></select>
-        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><button id="chain" type="button"></button></div><div id="eps"></div>`;
+        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select><button id="chain" type="button"></button><button id="track" type="button"></button></div><div id="eps"></div>`;
     const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
     $('#chain').onclick = () => { chain = !chain; try { localStorage.setItem('chain', chain ? '1' : '0'); } catch {} showChain(); };
     showChain();
+    const showTrack = () => { const on = trackOn(feed.feedUrl); $('#track').textContent = on ? '◔ Suivi : oui' : '◔ Suivi : non'; $('#track').style.color = on ? 'var(--acc)' : ''; $('#rd').hidden = !on; };
+    $('#track').onclick = () => { const m = numMap('track.v1'); if (m[feed.feedUrl]) delete m[feed.feedUrl]; else m[feed.feedUrl] = 1; try { localStorage.setItem('track.v1', JSON.stringify(m)); } catch {} showTrack(); drawEps(); };
     const allPrefs = () => { try { return JSON.parse(localStorage.getItem('epprefs.v2')) || {}; } catch { return {}; } };
-    const prefs = () => ({ order: 'desc', min: 0, ...allPrefs()[feed.feedUrl] }); // réglages propres à ce podcast
-    const p0 = prefs(); $('#ord').value = p0.order; $('#mind').value = String(p0.min);
+    const prefs = () => ({ order: 'desc', min: 0, read: 'all', ...allPrefs()[feed.feedUrl] }); // réglages propres à ce podcast
+    const p0 = prefs(); $('#ord').value = p0.order; $('#mind').value = String(p0.min); $('#rd').value = p0.read;
     const drawEps = () => {
-      const p = { order: $('#ord').value, min: +$('#mind').value };
+      const p = { order: $('#ord').value, min: +$('#mind').value, read: $('#rd').value }, tr = trackOn(feed.feedUrl);
+      const opened = new Set([...$('#eps').querySelectorAll('.ep.open')].map(x => x.dataset.i));
       try { const m = allPrefs(); m[feed.feedUrl] = p; localStorage.setItem('epprefs.v2', JSON.stringify(m)); } catch {}
       let list = feed.episodes.map((e, i) => ({ e, i, t: Date.parse(e.date) || 0 }));
       if (p.min) list = list.filter(x => !durSec(x.e.dur) || durSec(x.e.dur) >= p.min * 60); // durée inconnue : conservé
+      const pg = e => (tr && getProg(feed.feedUrl, e)) || {};
+      if (tr && p.read === 'unread') list = list.filter(x => !pg(x.e).r);
+      if (tr && p.read === 'read') list = list.filter(x => pg(x.e).r);
       list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
       curList = list.slice(0, 150).map(x => x.e);
-      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
+      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr && pg(e).r ? ' isread' : ''}${opened.has(String(i)) ? ' open' : ''}" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<small class="rd">✓ Lu</small>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div>${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
-    $('#ord').onchange = $('#mind').onchange = drawEps; drawEps();
+    $('#ord').onchange = $('#mind').onchange = $('#rd').onchange = drawEps; showTrack(); drawEps();
+    epRedraw = () => { if ($('#eps') && $('#ord') && $('#ord').isConnected) { try { drawEps(); } catch {} } };
     const bindSkip = (id, key) => { $('#' + id).oninput = e => {
       const m = numMap(key), v = num(e.target.value);
       if (v) m[feed.feedUrl] = v; else delete m[feed.feedUrl];
@@ -288,6 +295,7 @@ async function openFeed(f, back) {
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
+      if (ev.target.closest('[data-read]')) { const e = feed.episodes[el.dataset.i], g = getProg(feed.feedUrl, e) || {}; setProg(feed.feedUrl, e, g.r ? { r: 0 } : { r: 1, t: 0 }); drawEps(); return; }
       const ep = feed.episodes[el.dataset.i];
       queue = curList.slice(); qi = queue.indexOf(ep); qCtx = { show: feed.title, art: feed.image, feedUrl: feed.feedUrl };
       play(ep, feed.title, feed.image, feed.feedUrl);
@@ -353,7 +361,28 @@ function renderSettings() {
   $('#cs').onclick = () => { Sync.setCfg({ ...Sync.cfg(), proxy: $('#cu').value.trim() }); msg('Proxy enregistré.'); };
 }
 
-// ---------- Lecture (toujours depuis 0, rien n'est mémorisé) ----------
+// ---------- Lecture (depuis 0 par défaut ; le suivi de lecture est une option par podcast) ----------
+// Suivi optionnel : position + « lu » par épisode (prog.v1), activé podcast par podcast (track.v1). Désactiver le suivi garde la mémoire, la réactiver la retrouve.
+const hk = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+const epKey = ep => hk(ep.url);
+const trackOn = u => !!numMap('track.v1')[u];
+const getProg = (u, ep) => (numMap('prog.v1')[u] || {})[epKey(ep)];
+function setProg(u, ep, patch) {
+  try { const m = numMap('prog.v1'), f = m[u] || (m[u] = {}), k = epKey(ep); f[k] = { ...f[k], ...patch, at: Date.now() }; localStorage.setItem('prog.v1', JSON.stringify(m)); } catch {}
+}
+let curEp = null, lastSave = 0, epRedraw = () => {};
+function saveProg(force) {
+  if (!curEp || !trackOn(curFeedUrl)) return;
+  const d = effDur(), t = audio.currentTime;
+  if (!d || !isFinite(t) || t < 1 || (!force && Date.now() - lastSave < 5000)) return;
+  lastSave = Date.now();
+  const p = getProg(curFeedUrl, curEp) || {};
+  setProg(curFeedUrl, curEp, { t: Math.round(t), d: Math.round(d), ...((!p.r && d - t < 10 + curSkipEnd) ? { r: 1 } : {}) });
+}
+function markDone() { if (curEp && trackOn(curFeedUrl)) { setProg(curFeedUrl, curEp, { r: 1, t: 0 }); epRedraw(); } }
+onAudio('timeupdate', () => saveProg(false));
+onAudio('pause', () => { saveProg(true); epRedraw(); });
+onAudio('ended', markDone);
 let chain = localStorage.getItem('chain') === '1', curList = [], queue = [], qi = -1, qCtx = null;
 function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; play(queue[i], qCtx.show, qCtx.art, qCtx.feedUrl); return true; }
 onAudio('ended', () => { if (chain) playAt(qi + 1); });
@@ -376,8 +405,10 @@ function play(ep, show, art, feedUrl) {
   audio.src = ep.url; note(plain && nightOn ? 'Mode nuit indisponible pour ce podcast.' : '');
   audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
   curFeedUrl = feedUrl; curSkipEnd = skipEndFor(feedUrl); earlyDone = false; curDurHint = durSec(ep.dur);
-  const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
-  if (skip > 0) audio.addEventListener('canplay', () => { if (audio.duration > skip) audio.currentTime = skip; }, { once: true });
+  const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast
+  curEp = ep; lastSave = 0;
+  const pr = trackOn(feedUrl) ? getProg(feedUrl, ep) : null, start = pr && !pr.r && pr.t > 5 ? pr.t : skip; // reprise si le suivi est activé
+  if (start > 0) audio.addEventListener('canplay', () => { if (audio.duration > start) audio.currentTime = start; }, { once: true });
   const cover = (ep.image || art || '').replace(/\d+x\d+bb/, '600x600bb');
   $('#np-art').src = cover; $('#np-art').style.visibility = cover ? 'visible' : 'hidden';
   $('#player').hidden = false; $('#np-title').textContent = ep.title; $('#np-show').textContent = show;
@@ -415,7 +446,7 @@ onAudio('timeupdate', checkSleep);
 let endT = 0, curDurHint = 0;
 const effDur = () => (isFinite(audio.duration) && audio.duration > 0) ? audio.duration : curDurHint;
 function fireEnd() {
-  earlyDone = true; clearTimeout(endT);
+  earlyDone = true; clearTimeout(endT); markDone();
   if (chain && queue.length && qi < queue.length - 1) playAt(qi + 1);
   else { audio.pause(); const d = audio.duration; if (isFinite(d)) { try { audio.currentTime = d; } catch {} } }
 }
