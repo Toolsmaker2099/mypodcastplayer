@@ -1,41 +1,53 @@
-// Couche de synchro des favoris. localStorage = base locale ; Cloudflare KV (via worker) = sauvegarde distante.
+// Couche de synchro des favoris. localStorage = base locale ; worker « sauvegarde » (KV Cloudflare) = sauvegarde distante.
 // Aucune progression de lecture n'est stockée ici ni ailleurs.
 const Sync = (() => {
-  const FAV_KEY = 'favs.v1', CFG_KEY = 'sync.cfg.v1';
+  const BASE = 'https://sauvegarde.toolsmaker.workers.dev/v1/podcasts/';
+  const FAV_KEY = 'favs.v1', CFG_KEY = 'sync.cfg.v1', VER_KEY = 'sync.ver.v1';
   const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-
-  // cfg: { url: 'https://worker...', key: 'ma-cle', token: '...' }
-  // À ADAPTER selon le worker de Tom (format de clé / auth) : seulement remote* ci-dessous.
-  const cfg = () => load(CFG_KEY, {});
+  const cfg = () => load(CFG_KEY, {});          // { code: 'XXXX-XXXX-XXXX-XXXX', proxy: 'https://…' }
   const setCfg = c => save(CFG_KEY, c);
   const favs = () => load(FAV_KEY, []);
-  const enabled = () => { const c = cfg(); return !!(c.url && c.key); };
+  const enabled = () => /^[A-Z0-9]{4}(-[A-Z0-9]{4}){3,7}$/.test((cfg().code || '').toUpperCase());
+  const url = () => BASE + cfg().code.toUpperCase();
 
-  const headers = c => ({ 'Content-Type': 'application/json', ...(c.token ? { Authorization: 'Bearer ' + c.token } : {}) });
-  async function remoteGet(c) {
-    const r = await fetch(`${c.url.replace(/\/$/, '')}/kv/${encodeURIComponent(c.key)}`, { headers: headers(c) });
+  function newCode() {
+    const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = crypto.getRandomValues(new Uint8Array(16));
+    return [0, 4, 8, 12].map(i => [...b.slice(i, i + 4)].map(x => a[x % a.length]).join('')).join('-');
+  }
+  const merge = (a, b) => { const m = new Map(); [...a, ...b].forEach(f => m.set(f.feedUrl, f)); return [...m.values()]; };
+
+  async function get() {
+    const r = await fetch(url(), { cache: 'no-store' });
     if (r.status === 404) return null;
-    if (!r.ok) throw new Error('KV GET ' + r.status);
-    return r.json();
+    if (!r.ok) throw new Error('Sauvegarde ' + r.status);
+    return { data: await r.json(), ver: r.headers.get('X-Sauvegarde-Version') };
   }
-  async function remotePut(c, data) {
-    const r = await fetch(`${c.url.replace(/\/$/, '')}/kv/${encodeURIComponent(c.key)}`, { method: 'PUT', headers: headers(c), body: JSON.stringify(data) });
-    if (!r.ok) throw new Error('KV PUT ' + r.status);
+  async function put(list, ver) {
+    const h = { 'Content-Type': 'application/json' };
+    h['X-Sauvegarde-Version'] = ver || 'new';
+    const r = await fetch(url(), { method: 'PUT', headers: h, body: JSON.stringify({ favs: list }) });
+    if (r.status === 409) return { conflict: true };
+    if (!r.ok) throw new Error('Sauvegarde ' + r.status);
+    localStorage.setItem(VER_KEY, (await r.json()).version);
+    return {};
   }
-
-  async function push() { if (enabled()) await remotePut(cfg(), { favs: favs(), t: Date.now() }); }
-  function setFavs(list) { save(FAV_KEY, list); push().catch(() => {}); }
-  async function pull() { // fusion par feedUrl, union locale + distante
+  // Récupère la version en ligne, fusionne (union par flux) et renvoie le résultat.
+  async function pull() {
     if (!enabled()) return favs();
-    const remote = await remoteGet(cfg());
-    if (!remote) { await push(); return favs(); }
-    const map = new Map();
-    [...(remote.favs || []), ...favs()].forEach(f => map.set(f.feedUrl, f));
-    const merged = [...map.values()];
+    const remote = await get();
+    const merged = remote ? merge(remote.data.favs || [], favs()) : favs();
     save(FAV_KEY, merged);
-    if (merged.length !== (remote.favs || []).length) await push();
+    if (!remote) await put(merged, null);
+    else if (merged.length !== (remote.data.favs || []).length) await put(merged, remote.ver);
+    else localStorage.setItem(VER_KEY, remote.ver || '');
     return merged;
   }
-  return { favs, setFavs, pull, cfg, setCfg, enabled };
+  async function push() {
+    if (!enabled()) return;
+    const r = await put(favs(), localStorage.getItem(VER_KEY) || null);
+    if (r.conflict) await pull();
+  }
+  function setFavs(list) { save(FAV_KEY, list); push().catch(() => {}); }
+  return { favs, setFavs, pull, cfg, setCfg, enabled, newCode };
 })();

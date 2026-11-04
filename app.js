@@ -7,8 +7,8 @@ let tab = 'favs', feedCache = new Map(); // cache mémoire seulement (jamais de 
 async function fetchText(url) {
   try { const r = await fetch(url); if (r.ok) return await r.text(); } catch {}
   const c = Sync.cfg();
-  if (!c.url) throw new Error('Flux bloqué par CORS : configure le worker dans Réglages.');
-  const r = await fetch(`${c.url.replace(/\/$/, '')}/proxy?url=${encodeURIComponent(url)}`, { headers: c.token ? { Authorization: 'Bearer ' + c.token } : {} });
+  if (!c.proxy) throw new Error('Flux bloqué par CORS : configure le proxy dans Réglages.');
+  const r = await fetch(`${c.proxy.replace(/\/$/, '')}/?url=${encodeURIComponent(url)}`);
   if (!r.ok) throw new Error('Proxy ' + r.status);
   return r.text();
 }
@@ -77,17 +77,17 @@ async function openFeed(f, back) {
 function renderSettings() {
   const c = Sync.cfg();
   view.innerHTML = `<label>Ajouter un flux RSS</label><form id="af" class="row"><input id="rss" placeholder="https://…/feed.xml"><button>Ajouter</button></form><p id="am" class="dim"></p>
-  <label>Worker Cloudflare (URL)</label><input id="cu" value="${esc(c.url || '')}" placeholder="https://xxx.workers.dev">
-  <label>Clé KV</label><input id="ck" value="${esc(c.key || '')}">
-  <label>Token</label><input id="ct" type="password" value="${esc(c.token || '')}">
+  <label>Code de sauvegarde des favoris</label><div class="row"><input id="ck" value="${esc(c.code || '')}" placeholder="XXXX-XXXX-XXXX-XXXX"><button id="cg" type="button">Créer</button></div>
+  <label>Proxy RSS (worker, si un flux est bloqué)</label><input id="cu" value="${esc(c.proxy || '')}" placeholder="https://rss.xxx.workers.dev">
   <p><button id="cs">Enregistrer et synchroniser</button></p><p id="cm" class="dim"></p>`;
   $('#af').onsubmit = async e => {
     e.preventDefault();
     try { const f = await loadFeed($('#rss').value.trim()); toggleFav({ feedUrl: f.feedUrl, title: f.title, image: f.image }); $('#am').textContent = 'Ajouté : ' + f.title; $('#rss').value = ''; }
     catch (err) { $('#am').textContent = err.message; }
   };
+  $('#cg').onclick = () => { $('#ck').value = Sync.newCode(); };
   $('#cs').onclick = async () => {
-    Sync.setCfg({ url: $('#cu').value.trim(), key: $('#ck').value.trim(), token: $('#ct').value.trim() });
+    Sync.setCfg({ code: $('#ck').value.trim().toUpperCase(), proxy: $('#cu').value.trim() });
     try { await Sync.pull(); $('#cm').textContent = 'Synchronisé.'; } catch (err) { $('#cm').textContent = 'Échec : ' + err.message; }
   };
 }
