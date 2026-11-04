@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.14';
+const APP_VERSION = '2026-11-04.15';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -273,7 +273,7 @@ function syncTimes() {
   $('#t-tot').textContent = ok ? 'Total ' + clock(d) : 'Total --:--';
   $('#t-rem').textContent = ok ? '-' + clock(d - audio.currentTime) : '-';
 }
-const paint = () => { const m = +seekEl.max; seekEl.style.setProperty('--p', m > 0 ? Math.min(1, Math.max(0, +seekEl.value / m)) : 0); };
+const paint = () => { const m = +seekEl.max, p = m > 0 ? Math.min(1, Math.max(0, +seekEl.value / m)) : 0; seekEl.style.setProperty('--p', p); $('#player').style.setProperty('--p', p); };
 function syncSeek() {
   syncTimes();
   const d = audio.duration;
@@ -412,3 +412,12 @@ nightBtn.onclick = () => {
 audio.addEventListener('error', () => { if (nightOn && audio.src) nightFailed(); });
 audio.addEventListener('canplay', () => { if (nightOn && !ctx && audio.crossOrigin) { buildGraph(); ctx.resume(); nightParams(); } else if (ctx) ctx.resume(); });
 showNight();
+
+// ---------- Mini-lecteur (réduit : la lecture continue pendant la navigation) ----------
+(() => {
+  const pl = $('#player'), btn = $('#collapse');
+  const set = mini => { pl.classList.toggle('mini', mini); btn.textContent = mini ? '⌃' : '⌄'; btn.setAttribute('aria-label', mini ? 'Agrandir le lecteur' : 'Réduire le lecteur'); try { localStorage.setItem('mini', mini ? '1' : '0'); } catch {} };
+  set(localStorage.getItem('mini') === '1');
+  btn.onclick = () => set(!pl.classList.contains('mini'));
+  $('.np').onclick = () => { if (pl.classList.contains('mini')) set(false); };
+})();

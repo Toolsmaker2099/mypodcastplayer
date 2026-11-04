@@ -59,3 +59,12 @@ label{display:block;margin-top:18px;color:var(--dim);font-size:13px;text-transfo
 #seek::-moz-range-track{height:6px;background:transparent}
 #seek::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5)}
 .item.off{opacity:.4}
+#collapse{position:absolute;top:8px;right:10px;width:36px;height:36px;padding:0;border-radius:50%;font-size:18px;line-height:1;z-index:1}
+.np{padding-right:44px}
+#player.mini{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:10px 12px 12px;border-radius:20px}
+#player.mini .np{padding:0;min-width:0;cursor:pointer}
+#player.mini #collapse{position:static;order:3}
+#player.mini .ctl{display:contents}
+#player.mini .ctl button:not(#pp),#player.mini .times,#player.mini #seek{display:none}
+#player.mini #pp{width:46px;height:46px;font-size:16px;order:2}
+#player.mini::after{content:'';position:absolute;left:18px;right:18px;bottom:4px;height:3px;border-radius:3px;background:linear-gradient(to right,var(--acc) calc(var(--p,0)*100%),rgba(255,255,255,.14) 0)}
