@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.43';
+const APP_VERSION = '2026-11-04.44';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -260,11 +260,21 @@ async function openFeed(f, back) {
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
       <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button></p>` +
       `<div class="filters"><select id="ord"><option value="desc">Récents d'abord</option><option value="asc">Anciens d'abord</option></select>
-        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select><button id="chain" type="button"></button><button id="track" type="button"></button></div><div id="eps"></div>`;
+        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select><button id="chain" type="button"></button><button id="track" type="button"></button><button id="selbtn" type="button" hidden>☑ Sélection</button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Lu</button><button type="button" data-a="unread">Non lu</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
     const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
     $('#chain').onclick = () => { chain = !chain; try { localStorage.setItem('chain', chain ? '1' : '0'); } catch {} showChain(); };
     showChain();
-    const showTrack = () => { const on = trackOn(feed.feedUrl); $('#track').textContent = on ? '◔ Suivi : oui' : '◔ Suivi : non'; $('#track').style.color = on ? 'var(--acc)' : ''; $('#rd').hidden = !on; };
+    let selMode = false, curListIdx = []; const sel = new Set();
+    const showSel = () => { $('#selbar').hidden = !selMode; $('#selbtn').style.color = selMode ? 'var(--acc)' : ''; $('#selcnt').textContent = sel.size + ' sélectionné' + (sel.size > 1 ? 's' : ''); };
+    $('#selbtn').onclick = () => { selMode = !selMode; sel.clear(); showSel(); drawEps(); };
+    $('#selbar').onclick = ev => {
+      const b = ev.target.closest('button[data-a]'); if (!b) return; const act = b.dataset.a;
+      if (act === 'all') { if (sel.size >= curListIdx.length) sel.clear(); else curListIdx.forEach(i => sel.add(i)); }
+      else if (act === 'done') { selMode = false; sel.clear(); }
+      else { if (!sel.size) return; setProgMany(feed.feedUrl, [...sel].map(i => feed.episodes[i]), act === 'read' ? { r: 1, t: 0 } : { r: 0, t: 0 }); sel.clear(); }
+      showSel(); drawEps();
+    };
+    const showTrack = () => { const on = trackOn(feed.feedUrl); $('#track').textContent = on ? '◔ Suivi : oui' : '◔ Suivi : non'; $('#track').style.color = on ? 'var(--acc)' : ''; $('#rd').hidden = !on; $('#selbtn').hidden = !on; if (!on) { selMode = false; sel.clear(); showSel(); } };
     $('#track').onclick = () => { const m = numMap('track.v1'); if (m[feed.feedUrl]) delete m[feed.feedUrl]; else m[feed.feedUrl] = 1; try { localStorage.setItem('track.v1', JSON.stringify(m)); } catch {} showTrack(); drawEps(); };
     const allPrefs = () => { try { return JSON.parse(localStorage.getItem('epprefs.v2')) || {}; } catch { return {}; } };
     const prefs = () => ({ order: 'desc', min: 0, read: 'all', ...allPrefs()[feed.feedUrl] }); // réglages propres à ce podcast
@@ -279,8 +289,8 @@ async function openFeed(f, back) {
       if (tr && p.read === 'unread') list = list.filter(x => !pg(x.e).r);
       if (tr && p.read === 'read') list = list.filter(x => pg(x.e).r);
       list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
-      curList = list.slice(0, 150).map(x => x.e);
-      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr && pg(e).r ? ' isread' : ''}${opened.has(String(i)) ? ' open' : ''}" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<small class="rd">✓ Lu</small>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div>${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
+      curList = list.slice(0, 150).map(x => x.e); curListIdx = list.slice(0, 150).map(x => x.i);
+      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr && pg(e).r ? ' isread' : ''}${opened.has(String(i)) ? ' open' : ''}${selMode && sel.has(i) ? ' sel' : ''}" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<small class="rd">✓ Lu</small>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div>${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
     $('#ord').onchange = $('#mind').onchange = $('#rd').onchange = drawEps; showTrack(); drawEps();
     epRedraw = () => { if ($('#eps') && $('#ord') && $('#ord').isConnected) { try { drawEps(); } catch {} } };
@@ -296,6 +306,7 @@ async function openFeed(f, back) {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
       if (ev.target.closest('[data-read]')) { const e = feed.episodes[el.dataset.i], g = getProg(feed.feedUrl, e) || {}; setProg(feed.feedUrl, e, g.r ? { r: 0 } : { r: 1, t: 0 }); drawEps(); return; }
+      if (selMode) { const i = +el.dataset.i; sel.has(i) ? sel.delete(i) : sel.add(i); el.classList.toggle('sel', sel.has(i)); showSel(); return; }
       const ep = feed.episodes[el.dataset.i];
       queue = curList.slice(); qi = queue.indexOf(ep); qCtx = { show: feed.title, art: feed.image, feedUrl: feed.feedUrl };
       play(ep, feed.title, feed.image, feed.feedUrl);
@@ -369,6 +380,9 @@ const trackOn = u => !!numMap('track.v1')[u];
 const getProg = (u, ep) => (numMap('prog.v1')[u] || {})[epKey(ep)];
 function setProg(u, ep, patch) {
   try { const m = numMap('prog.v1'), f = m[u] || (m[u] = {}), k = epKey(ep); f[k] = { ...f[k], ...patch, at: Date.now() }; localStorage.setItem('prog.v1', JSON.stringify(m)); } catch {}
+}
+function setProgMany(u, eps, patch) {
+  try { const m = numMap('prog.v1'), f = m[u] || (m[u] = {}), now = Date.now(); eps.forEach(e => { const k = epKey(e); f[k] = { ...f[k], ...patch, at: now }; }); localStorage.setItem('prog.v1', JSON.stringify(m)); } catch {}
 }
 let curEp = null, lastSave = 0, epRedraw = () => {};
 function saveProg(force) {

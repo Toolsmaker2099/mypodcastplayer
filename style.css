@@ -174,3 +174,5 @@ body.noscroll{overflow:hidden}
 .ep.isread b,.ep.isread .m{opacity:.55}.rd{display:block;color:var(--acc);margin-top:4px}
 .pbar{display:block;height:3px;border-radius:3px;background:rgba(255,255,255,.1);margin-top:7px;overflow:hidden}.pbar i{display:block;height:100%;background:linear-gradient(90deg,#8fa2ff,#c79bff)}
 .rbtn{font-size:16px;font-weight:700;color:var(--dim)}.rbtn.on{color:var(--acc);border-color:rgba(165,185,255,.6)}
+.selbar{display:flex;gap:8px;align-items:center;margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--card);flex-wrap:wrap}.selbar span{flex:1;font-size:13px;color:var(--dim);min-width:90px}.selbar button{padding:8px 12px;font-size:13px}
+.ep.sel{outline:2px solid rgba(165,185,255,.85);background:rgba(143,162,255,.12)}
