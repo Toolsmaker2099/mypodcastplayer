@@ -48,3 +48,4 @@ label{display:block;margin-top:18px;color:var(--dim);font-size:13px;text-transfo
 #bin{text-transform:uppercase;font-family:ui-monospace,Menlo,monospace;letter-spacing:.05em}
 .filters{display:flex;gap:8px;margin:6px 0 4px}.filters select{flex:1;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px;font:inherit;appearance:none;-webkit-appearance:none}
 .filters button{white-space:nowrap;padding:0 12px;font-size:13px}.filters{flex-wrap:wrap}.filters select{min-width:140px}
+.skip{display:flex;align-items:center;gap:12px;margin:10px 0}.skip label{margin:0;flex:1;text-transform:none;letter-spacing:0;font-size:14px}.skip input{width:90px;margin:0;text-align:center}

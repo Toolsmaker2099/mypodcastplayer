@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.7';
+const APP_VERSION = '2026-11-04.8';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -96,7 +96,7 @@ async function openFeed(f, back) {
     const feed = feedCache.get(f.feedUrl) || await loadFeed(f.feedUrl);
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
-      <p class="d full">${esc(feed.desc)}</p><p><button id="fav">${isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'}</button></p>` +
+      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter les premières secondes</label><input id="skipin" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><p><button id="fav">${isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'}</button></p>` +
       `<div class="filters"><select id="ord"><option value="desc">Plus récents d'abord</option><option value="asc">Plus anciens d'abord</option></select>
         <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><button id="chain" type="button"></button></div><div id="eps"></div>`;
     const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
@@ -114,13 +114,18 @@ async function openFeed(f, back) {
       $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="star" data-more aria-label="Détails">⌄</button><button class="star">▶</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
     $('#ord').onchange = $('#mind').onchange = drawEps; drawEps();
+    $('#skipin').oninput = e => {
+      const m = skipMap(), v = Math.max(0, Math.floor(+e.target.value) || 0);
+      if (v) m[feed.feedUrl] = v; else delete m[feed.feedUrl];
+      try { localStorage.setItem('skip.v1', JSON.stringify(m)); } catch {}
+    };
     $('#fav').onclick = () => { toggleFav(feed); $('#fav').textContent = isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'; };
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
       const ep = feed.episodes[el.dataset.i];
-      queue = curList.slice(); qi = queue.indexOf(ep); qCtx = { show: feed.title, art: feed.image };
-      play(ep, feed.title, feed.image);
+      queue = curList.slice(); qi = queue.indexOf(ep); qCtx = { show: feed.title, art: feed.image, feedUrl: feed.feedUrl };
+      play(ep, feed.title, feed.image, feed.feedUrl);
     };
   } catch (err) { view.innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
 }
@@ -169,11 +174,15 @@ function renderSettings() {
 
 // ---------- Lecture (toujours depuis 0, rien n'est mémorisé) ----------
 let chain = localStorage.getItem('chain') === '1', curList = [], queue = [], qi = -1, qCtx = null;
-function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; play(queue[i], qCtx.show, qCtx.art); return true; }
+function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; play(queue[i], qCtx.show, qCtx.art, qCtx.feedUrl); return true; }
 audio.addEventListener('ended', () => { if (chain) playAt(qi + 1); });
-function play(ep, show, art) {
+const skipMap = () => { try { return JSON.parse(localStorage.getItem('skip.v1')) || {}; } catch { return {}; } };
+const skipFor = u => +skipMap()[u] || 0;
+function play(ep, show, art, feedUrl) {
   audio.crossOrigin = nightOn ? 'anonymous' : null;
   audio.src = ep.url; audio.currentTime = 0; audio.play().catch(() => {});
+  const skip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
+  if (skip > 0) audio.addEventListener('loadedmetadata', () => { if (audio.duration > skip) audio.currentTime = skip; }, { once: true });
   $('#player').hidden = false; $('#np-title').textContent = ep.title; $('#np-show').textContent = show;
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({ title: ep.title, artist: show, artwork: art ? [{ src: art, sizes: '512x512' }] : [] });
