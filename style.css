@@ -339,3 +339,4 @@ button.sw.on{background:linear-gradient(135deg,#6f86ff,#b072ff);border-color:tra
 .epbar .ibtn{width:42px;height:42px;border-radius:12px}.ibtn.playb.wide{width:auto;margin-left:auto;padding:0 18px;display:inline-flex;gap:7px;font-weight:700;font-size:14.5px}.ibtn.playb.wide svg{margin:0}
 .item.ep>.epacts{flex:1 1 100%;margin:0}.ep.selmode .epbar{display:none}
 @media(pointer:coarse){.ddi{padding:14px 14px;font-size:16px}.ddm{max-width:calc(100vw - 16px)}}
+.morebtn{display:block;width:100%;margin:14px 0 6px;padding:14px;border-radius:14px;font-weight:600}.morebtn .dim{font-weight:400;font-size:12.5px;margin-left:4px}
