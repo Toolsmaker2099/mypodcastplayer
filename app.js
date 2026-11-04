@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.20';
+const APP_VERSION = '2026-11-04.21';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -321,27 +321,32 @@ audio.addEventListener('pause', () => { $('#pp').textContent = '▶'; navigator.
 const seekEl = $('#seek');
 let seeking = false;
 const clock = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(r).padStart(2, '0'); };
-function syncTimes() {
-  const d = audio.duration, ok = isFinite(d) && d > 0;
-  $('#t-cur').textContent = clock(audio.currentTime);
+function syncTimes(at) {
+  const d = audio.duration, ok = isFinite(d) && d > 0, t = at == null ? audio.currentTime : at;
+  $('#t-cur').textContent = clock(t);
   $('#t-tot').textContent = ok ? 'Total ' + clock(d) : 'Total --:--';
-  $('#t-rem').textContent = ok ? '-' + clock(d - audio.currentTime) : '-';
+  $('#t-rem').textContent = ok ? '-' + clock(d - t) : '-';
 }
-const paint = () => { const m = +seekEl.max, p = m > 0 ? Math.min(1, Math.max(0, +seekEl.value / m)) : 0; seekEl.style.setProperty('--p', p); $('#player').style.setProperty('--p', p); };
+const setRatio = r => { seekEl.style.setProperty('--p', r); $('#player').style.setProperty('--p', r); };
 function syncSeek() {
+  if (seeking) return;
   syncTimes();
   const d = audio.duration;
-  if (!isFinite(d) || d <= 0) { seekEl.max = 0; seekEl.value = 0; paint(); return; }
-  seekEl.max = d;
-  if (!seeking) seekEl.value = audio.ended ? d : Math.min(audio.currentTime, d);
-  paint();
+  setRatio(isFinite(d) && d > 0 ? (audio.ended ? 1 : Math.min(1, audio.currentTime / d)) : 0);
 }
-function resetSeek() { seeking = false; seekEl.max = 0; seekEl.value = 0; syncTimes(); paint(); }
+function resetSeek() { seeking = false; setRatio(0); syncTimes(); }
 ['loadstart', 'emptied'].forEach(ev => audio.addEventListener(ev, resetSeek));
 ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => audio.addEventListener(ev, syncSeek));
 audio.addEventListener('timeupdate', checkSleep);
-seekEl.oninput = () => { seeking = true; paint(); $('#t-cur').textContent = clock(+seekEl.value); $('#t-rem').textContent = '-' + clock(audio.duration - seekEl.value); };
-seekEl.onchange = e => { audio.currentTime = +e.target.value; seeking = false; };
+// Barre de progression maison : active sur toute sa longueur, du premier au dernier pixel.
+const ratioAt = e => { const r = seekEl.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
+const dragTo = e => { const r = ratioAt(e); setRatio(r); syncTimes(r * audio.duration); return r; };
+seekEl.addEventListener('pointerdown', e => { if (!(audio.duration > 0)) return; seeking = true; seekEl.setPointerCapture(e.pointerId); dragTo(e); });
+seekEl.addEventListener('pointermove', e => { if (seeking) dragTo(e); });
+const endDrag = e => { if (!seeking) return; const r = ratioAt(e); seeking = false; audio.currentTime = r * audio.duration; syncSeek(); };
+seekEl.addEventListener('pointerup', endDrag);
+seekEl.addEventListener('pointercancel', () => { seeking = false; syncSeek(); });
+seekEl.addEventListener('keydown', e => { if (e.key === 'ArrowRight') audio.currentTime += 5; else if (e.key === 'ArrowLeft') audio.currentTime -= 5; });
 const toggle = () => audio.paused ? audio.play() : audio.pause();
 const skip = d => { audio.currentTime = Math.max(0, audio.currentTime + d); };
 $('#pp').onclick = toggle; $('#rw').onclick = () => skip(-15); $('#ff').onclick = () => skip(30);

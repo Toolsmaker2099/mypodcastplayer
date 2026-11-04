@@ -52,12 +52,11 @@ label{display:block;margin-top:18px;color:var(--dim);font-size:13px;text-transfo
 .times{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:2px}#t-tot{color:var(--fg)}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:6px 0 4px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}.chip{white-space:nowrap;border-radius:999px;padding:8px 14px;font-size:13px;color:var(--dim)}.chip.on{background:rgba(155,176,255,.18);color:#fff;border-color:var(--acc)}
 .ctl button:disabled{opacity:.3}.ctl{flex-wrap:wrap}.ctl.opts{margin:0 0 6px}.ctl.opts button{height:34px}
-#seek{--p:0;-webkit-appearance:none;appearance:none;display:block;width:100%;height:6px;margin:12px 0 8px;padding:0;border-radius:999px;outline:none;cursor:pointer;
- background:linear-gradient(to right,var(--acc) calc(7px + (100% - 14px) * var(--p)),rgba(255,255,255,.14) calc(7px + (100% - 14px) * var(--p)))}
-#seek::-webkit-slider-runnable-track{-webkit-appearance:none;height:6px;background:transparent;border-radius:999px}
-#seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-4px;border-radius:50%;background:#fff;border:0;box-shadow:0 2px 8px rgba(0,0,0,.5)}
-#seek::-moz-range-track{height:6px;background:transparent}
-#seek::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+#seek{--p:0;position:relative;display:block;width:100%;height:30px;margin:4px 0;touch-action:none;cursor:pointer;outline:none;-webkit-user-select:none;user-select:none}
+#seek .trk{position:absolute;left:0;right:0;top:12px;height:6px;border-radius:999px;background:rgba(255,255,255,.16);overflow:hidden}
+#seek .fil{height:100%;width:calc(7px + var(--p) * (100% - 14px));background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:999px}
+#seek .thb{position:absolute;top:8px;width:14px;height:14px;border-radius:50%;background:#fff;left:calc(var(--p) * (100% - 14px));box-shadow:0 2px 8px rgba(0,0,0,.5)}
+#seek:focus-visible .thb{box-shadow:0 0 0 4px rgba(155,176,255,.4)}
 .item.off{opacity:.4}
 #collapse{position:absolute;top:8px;right:10px;width:36px;height:36px;padding:0;border-radius:50%;font-size:18px;line-height:1;z-index:1}
 .np{padding-right:44px}
