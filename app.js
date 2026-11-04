@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.29';
+const APP_VERSION = '2026-11-04.30';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -72,8 +72,16 @@ function render() {
 }
 function renderFavs() {
   const l = Sync.favs();
-  view.innerHTML = l.length ? l.map(f => showItem(f, false)).join('') : '<p class="dim">Aucun favori. Utilise la recherche ou ajoute un flux RSS dans Réglages.</p>';
-  view.querySelectorAll('.item').forEach((el, i) => el.onclick = () => openFeed(l[i]));
+  view.innerHTML = l.length ? l.map(f => showItem(f, true)).join('') : '<p class="dim">Aucun favori. Utilise la recherche ou ajoute un flux RSS dans Réglages.</p>';
+  view.querySelectorAll('.item').forEach((el, i) => el.onclick = ev => {
+    if (ev.target.closest('[data-star]')) { // retire (ou remet) le favori d'un clic ; l'élément disparaît à la prochaine ouverture de la liste
+      toggleFav(l[i]);
+      const on = Sync.favs().some(x => x.feedUrl === l[i].feedUrl);
+      ev.target.textContent = on ? '★' : '☆'; el.classList.toggle('removed', !on);
+      return;
+    }
+    openFeed(l[i]);
+  });
 }
 // ---------- Podcast Index (clé + secret saisis dans Réglages, stockés sur l'appareil seulement) ----------
 const piCfg = () => { try { return JSON.parse(localStorage.getItem('pi.cfg')) || {}; } catch { return {}; } };

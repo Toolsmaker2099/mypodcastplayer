@@ -116,3 +116,4 @@ body.noscroll{overflow:hidden}
 .tog.on{color:#fff;border-color:rgba(165,185,255,.6)}.tog.on::before{border-color:var(--acc);background:radial-gradient(var(--acc) 45%,transparent 50%)}
 .chips.wrap{flex-wrap:wrap;overflow:visible}
 .count{margin:12px 2px 0;font-size:13px}
+.item.removed{opacity:.45}.item.removed .t b{text-decoration:line-through}
