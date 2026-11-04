@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.8';
+const APP_VERSION = '2026-11-04.9';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -192,17 +192,25 @@ audio.addEventListener('play', () => { $('#pp').textContent = '❚❚'; navigato
 audio.addEventListener('pause', () => { $('#pp').textContent = '▶'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); applyPendingReload(); });
 const seekEl = $('#seek');
 let seeking = false;
+const clock = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(r).padStart(2, '0'); };
+function syncTimes() {
+  const d = audio.duration, ok = isFinite(d) && d > 0;
+  $('#t-cur').textContent = clock(audio.currentTime);
+  $('#t-tot').textContent = ok ? 'Total ' + clock(d) : 'Total --:--';
+  $('#t-rem').textContent = ok ? '-' + clock(d - audio.currentTime) : '-';
+}
 function syncSeek() {
+  syncTimes();
   const d = audio.duration;
   if (!isFinite(d) || d <= 0) { seekEl.max = 0; seekEl.value = 0; return; }
   seekEl.max = d;
   if (!seeking) seekEl.value = Math.min(audio.currentTime, d);
 }
-function resetSeek() { seeking = false; seekEl.max = 0; seekEl.value = 0; }
+function resetSeek() { seeking = false; seekEl.max = 0; seekEl.value = 0; syncTimes(); }
 ['loadstart', 'emptied'].forEach(ev => audio.addEventListener(ev, resetSeek));
 ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => audio.addEventListener(ev, syncSeek));
 audio.addEventListener('timeupdate', checkSleep);
-seekEl.oninput = () => { seeking = true; };
+seekEl.oninput = () => { seeking = true; $('#t-cur').textContent = clock(+seekEl.value); $('#t-rem').textContent = '-' + clock(audio.duration - seekEl.value); };
 seekEl.onchange = e => { audio.currentTime = +e.target.value; seeking = false; };
 const toggle = () => audio.paused ? audio.play() : audio.pause();
 const skip = d => { audio.currentTime = Math.max(0, audio.currentTime + d); };
