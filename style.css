@@ -303,3 +303,11 @@ nav button{white-space:nowrap;padding-left:6px;padding-right:6px}@media(max-widt
 nav .bdg{right:2px;top:1px}
 .favsegw{margin:10px 0 0}.favsegw #favseg{display:flex;flex-wrap:wrap;width:100%;border-radius:16px;gap:4px}.favsegw #favseg button{flex:1 1 30%;min-width:0;padding:9px 6px;font-size:13.5px;overflow:hidden;text-overflow:ellipsis}
 @media(min-width:640px){.favsegw #favseg button{flex:1 1 0}}
+@media(max-width:700px){nav{box-sizing:border-box;max-width:calc(100vw - 16px);width:calc(100vw - 24px);overflow:hidden}nav button{flex:1 1 auto;min-width:0;padding-left:4px;padding-right:4px;font-size:12.5px;overflow:visible;text-overflow:clip}}
+nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 2px}nav button span{font-size:11px;line-height:1.1}nav button svg{display:block}
+nav .bdg{right:calc(50% - 22px);top:3px}
+@media(min-width:900px){nav button{flex-direction:row;gap:8px;padding:10px 14px}nav button span{font-size:14px}nav button svg{width:18px;height:18px}nav .bdg{position:static;margin-left:2px}}
+@media(max-width:700px){nav button{font-size:11px}nav button span{font-size:11px}}
+.favsegw #favseg button{flex:1 1 0}
+.favsegw #favseg button{flex:1 1 auto;padding:9px 4px;font-size:12.5px;text-overflow:clip}
+.xrow{gap:8px}.xrow>img{width:48px;height:48px;flex:none}.xrow .ibtn{width:34px;height:34px;min-width:0;padding:0;font-size:12px;flex:none}.xrow .t{flex:1 1 0}

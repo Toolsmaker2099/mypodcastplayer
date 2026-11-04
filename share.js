@@ -43,15 +43,15 @@ async function importShared(code) {
   m.querySelector('#im-body').innerHTML = sh.data.slice(0, 12).map(x => `<div class="lrow" style="cursor:default"><span>${esc(x.title)}</span></div>`).join('') + (n > 12 ? `<p class="dim sm">… et ${n - 12} autres</p>` : '');
   m.querySelector('#im-act').innerHTML = `<button class="abtn" id="im-add">${isList ? 'Ajouter à mes listes' : 'Ajouter à mes playlists'}</button>`;
   m.querySelector('#im-add').onclick = () => {
-    const name = sh.name;
+    const name = sh.name; let isPl = false;
     if (isList) {
       const d = listsData(), id = newId(); d.lists.push({ id, name });
       sh.data.forEach(f => { if (!f.feedUrl) return; d.members[f.feedUrl] = [...new Set([...(d.members[f.feedUrl] || []), id])]; d.pods[f.feedUrl] = d.pods[f.feedUrl] || f; });
       saveLists(d); localStorage.setItem('favlist', id); localStorage.setItem('favtab', 'pod');
     } else {
-      const l = plData(); l.push({ id: newId(), name, items: sh.data.filter(x => x.url) }); savePl(l); localStorage.setItem('favtab', 'pl');
+      const l = plData(); l.push({ id: newId(), name, items: sh.data.filter(x => x.url) }); savePl(l); localStorage.setItem('favtab', 'pl'); isPl = true;
     }
-    m.close(); tab = 'favs'; render(); toast(`« ${name} » ajoutée`);
+    m.close(); tab = isPl ? 'listen' : 'favs'; render(); toast(`« ${name} » ajoutée`);
   };
 }
 // Extrait l'adresse du flux d'un lien de partage ou d'une adresse RSS brute.

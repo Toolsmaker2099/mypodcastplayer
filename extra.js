@@ -101,7 +101,7 @@ function markSeen(feed) { const m = seenMap(), mx = Math.max(0, ...feed.episodes
 function seenInit() { const m = seenMap(); let ch = false; Sync.favs().forEach(f => { const fd = feedCache.get(f.feedUrl); if (fd && m[f.feedUrl] == null) { m[f.feedUrl] = Math.max(0, ...fd.episodes.map(epTime)); ch = true; } }); if (ch) xset('seen.v1', m); }
 const newBadge = f => { const fd = feedCache.get(f.feedUrl), n = fd ? newEps(fd).length : 0; return n ? `<span class="newpill">${n} nouveau${n > 1 ? 'x' : ''}</span>` : ''; };
 function refreshNewBadge() {
-  const b = document.querySelector('nav [data-tab=favs]'); if (!b) return;
+  const b = document.querySelector('nav [data-tab=listen]'); if (!b) return;
   const n = newTotal(); let i = b.querySelector('.bdg');
   if (!n) { if (i) i.remove(); return; }
   if (!i) { i = document.createElement('i'); i.className = 'bdg'; b.appendChild(i); } i.textContent = n > 99 ? '99+' : n;

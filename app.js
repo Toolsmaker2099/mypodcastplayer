@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.85';
+const APP_VERSION = '2026-11-04.87';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -106,9 +106,9 @@ function toggleFav(f) {
   Sync.setFavs(l);
 }
 function render() {
-  setTitle({ favs: 'Mes podcasts', search: 'Recherche', add: 'Ajouter', settings: 'Réglages' }[tab]);
+  setTitle({ favs: 'Mes podcasts', listen: 'Écoute', search: 'Recherche', add: 'Ajouter', settings: 'Réglages' }[tab]);
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  ({ favs: renderFavs, search: renderSearch, add: renderAdd, settings: renderSettings })[tab]();
+  ({ favs: renderFavs, listen: renderListen, search: renderSearch, add: renderAdd, settings: renderSettings })[tab]();
 }
 // ---------- Listes de favoris : « Tous les favoris » (principale, toujours là) + listes personnalisées ----------
 // Les listes personnalisées sont indépendantes des « Coups de cœur » : retirer un podcast des coups de cœur ne le retire pas des autres listes (on garde donc sa fiche dans « pods »).
@@ -126,13 +126,17 @@ function askName(title, value = '') {
   }));
 }
 function renderFavs() {
-  const ft = ['pl', 'q', 'dl', 'new'].includes(localStorage.getItem('favtab')) ? localStorage.getItem('favtab') : 'pod', nn = newTotal(), qn = qGet().length;
-  const head = `<div class="favsegw">${seg('favseg', [['pod', 'Podcasts'], ['new', 'Nouveautés' + (nn ? ' · ' + nn : '')], ['q', 'À écouter' + (qn ? ' · ' + qn : '')], ['pl', 'Playlists'], ['dl', 'Hors ligne']], ft)}</div>`;
+  if (tab === 'listen') { renderListen(); return; }
+  renderPodcastFavs('');
+}
+// Page « Écoute » : ce que j'écoute (file, nouveautés, playlists, hors ligne), un seul sélecteur en haut.
+function renderListen() {
+  const ft = ['new', 'q', 'pl', 'dl'].includes(localStorage.getItem('favtab')) ? localStorage.getItem('favtab') : 'q', nn = newTotal(), qn = qGet().length;
+  const head = `<div class="favsegw">${seg('favseg', [['q', 'À écouter' + (qn ? ' ' + qn : '')], ['new', 'Nouveautés' + (nn ? ' ' + nn : '')], ['pl', 'Playlists'], ['dl', 'Hors ligne']], ft)}</div>`;
   if (ft === 'q') { renderQueue(head); return; }
   if (ft === 'new') { renderNew(head); return; }
   if (ft === 'dl') { renderDownloads(head); return; }
-  if (ft === 'pl') { renderPlaylists(); view.insertAdjacentHTML('afterbegin', head); bindFavSeg(); return; }
-  renderPodcastFavs(head);
+  renderPlaylists(); view.insertAdjacentHTML('afterbegin', head); bindFavSeg();
 }
 function bindFavSeg() { const s = $('#favseg'); if (s) s.onclick = e => { const b = e.target.closest('button[data-v]'); if (b) { localStorage.setItem('favtab', b.dataset.v); renderFavs(); } }; }
 function renderPodcastFavs(head) {
@@ -720,7 +724,7 @@ async function refreshFavs() {
   const upd = Sync.favs().map((f, i) => { const v = res[i].value; return v ? { ...f, title: v.title, image: v.image || f.image, author: v.author, genre: v.genre, count: v.count, last: v.last, desc: v.desc.slice(0, 300) } : f; });
   if (JSON.stringify(upd) !== JSON.stringify(Sync.favs())) localStorage.setItem('favs.v1', JSON.stringify(upd)); // maj locale des infos, sans resynchroniser
   seenInit(); refreshNewBadge(); dlAutoRun();
-  if (tab === 'favs' && $('#back').hidden) renderFavs();
+  if ((tab === 'favs' || tab === 'listen') && $('#back').hidden) renderFavs();
 }
 async function checkUpdates() {
   if (!('serviceWorker' in navigator)) return;
@@ -743,7 +747,7 @@ $('#closep').onclick = () => { // ferme le lecteur : arrête la lecture (la posi
   document.body.classList.remove('hasplayer'); syncNav();
 };
 $('#speed').onclick = () => speedMenu($('#speed')); $('#info').onclick = () => { if (curEp) epInfo(curEp, curShow, '', curFeedUrl); else toast('Aucun épisode en cours'); };
-dlInit().then(() => { if (tab === 'favs') renderFavs(); }); applyRate();
+dlInit().then(() => { if (tab === 'favs' || tab === 'listen') renderFavs(); }); applyRate();
 render(); checkUpdates(); refreshFavs();
 
 // ---------- Installation : bouton toujours visible + étapes adaptées à l'appareil et au navigateur ----------
@@ -824,7 +828,7 @@ const onceMeta = fn => audio.addEventListener('loadedmetadata', fn, { once: true
 Sync.onChange = keys => { // données reçues d'un autre appareil : on rafraîchit l'écran si on peut le faire sans gêner
   try {
     if (keys.has('prog.v1') || keys.has('track.v1')) epRedraw();
-    if (tab === 'favs' && $('#back').hidden && !document.querySelector('.modal') && !popState) renderFavs();
+    if ((tab === 'favs' || tab === 'listen') && $('#back').hidden && !document.querySelector('.modal') && !popState) renderFavs();
   } catch {}
 };
 Sync.onSettings = () => { // réglages reçus de la sauvegarde
