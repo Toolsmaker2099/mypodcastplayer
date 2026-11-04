@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.11';
+const APP_VERSION = '2026-11-04.12';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -221,18 +221,20 @@ function syncTimes() {
   $('#t-tot').textContent = ok ? 'Total ' + clock(d) : 'Total --:--';
   $('#t-rem').textContent = ok ? '-' + clock(d - audio.currentTime) : '-';
 }
+const paint = () => { const m = +seekEl.max; seekEl.style.setProperty('--p', m > 0 ? Math.min(1, Math.max(0, +seekEl.value / m)) : 0); };
 function syncSeek() {
   syncTimes();
   const d = audio.duration;
-  if (!isFinite(d) || d <= 0) { seekEl.max = 0; seekEl.value = 0; return; }
+  if (!isFinite(d) || d <= 0) { seekEl.max = 0; seekEl.value = 0; paint(); return; }
   seekEl.max = d;
-  if (!seeking) seekEl.value = Math.min(audio.currentTime, d);
+  if (!seeking) seekEl.value = audio.ended ? d : Math.min(audio.currentTime, d);
+  paint();
 }
-function resetSeek() { seeking = false; seekEl.max = 0; seekEl.value = 0; syncTimes(); }
+function resetSeek() { seeking = false; seekEl.max = 0; seekEl.value = 0; syncTimes(); paint(); }
 ['loadstart', 'emptied'].forEach(ev => audio.addEventListener(ev, resetSeek));
 ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => audio.addEventListener(ev, syncSeek));
 audio.addEventListener('timeupdate', checkSleep);
-seekEl.oninput = () => { seeking = true; $('#t-cur').textContent = clock(+seekEl.value); $('#t-rem').textContent = '-' + clock(audio.duration - seekEl.value); };
+seekEl.oninput = () => { seeking = true; paint(); $('#t-cur').textContent = clock(+seekEl.value); $('#t-rem').textContent = '-' + clock(audio.duration - seekEl.value); };
 seekEl.onchange = e => { audio.currentTime = +e.target.value; seeking = false; };
 const toggle = () => audio.paused ? audio.play() : audio.pause();
 const skip = d => { audio.currentTime = Math.max(0, audio.currentTime + d); };
