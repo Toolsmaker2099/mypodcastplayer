@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="style.css">
+<title>Podcasts pour dormir</title>
+</head>
+<body>
+<header>
+  <h1 id="title">Favoris</h1>
+  <button id="back" hidden aria-label="Retour">←</button>
+</header>
+<main id="view"></main>
+
+<div id="player" hidden>
+  <div class="np"><div id="np-title"></div><div id="np-show"></div></div>
+  <div class="ctl">
+    <button id="rw" aria-label="Reculer 15 s">−15</button>
+    <button id="pp" aria-label="Lecture/Pause">▶</button>
+    <button id="ff" aria-label="Avancer 30 s">+30</button>
+    <button id="sleep" aria-label="Minuterie">☾ Off</button>
+  </div>
+  <input id="seek" type="range" min="0" max="0" value="0" step="1">
+</div>
+<audio id="audio" preload="none"></audio>
+
+<nav>
+  <button data-tab="favs" class="on">Favoris</button>
+  <button data-tab="search">Recherche</button>
+  <button data-tab="settings">Réglages</button>
+</nav>
+<script src="sync.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

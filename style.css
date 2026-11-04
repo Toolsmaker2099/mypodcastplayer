@@ -1,0 +1,25 @@
+:root{--bg:#0b0d14;--card:#141826;--fg:#d6dae8;--dim:#7c829a;--acc:#8aa0ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif}
+header{position:sticky;top:0;display:flex;align-items:center;gap:8px;padding:calc(12px + env(safe-area-inset-top)) 16px 8px;background:var(--bg)}
+h1{font-size:20px;margin:0;font-weight:600}
+main{padding:8px 16px;padding-bottom:230px}
+button{background:var(--card);color:var(--fg);border:0;border-radius:10px;padding:10px 14px;font:inherit}
+button:active{opacity:.6}
+input[type=text],input[type=search],input:not([type]),select{width:100%;background:var(--card);color:var(--fg);border:0;border-radius:10px;padding:12px;font:inherit;margin:4px 0}
+.item{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:12px;padding:10px;margin:8px 0}
+.item img{width:56px;height:56px;border-radius:8px;object-fit:cover;background:#222}
+.item .t{flex:1;min-width:0}.item .t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .t small{color:var(--dim)}
+.star{background:none;font-size:22px;padding:6px;color:var(--acc)}
+.dim{color:var(--dim)}
+#player{position:fixed;left:0;right:0;bottom:calc(52px + env(safe-area-inset-bottom));background:#10131f;padding:10px 16px;border-top:1px solid #1d2233}
+.np div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#np-show{color:var(--dim);font-size:13px}
+.ctl{display:flex;gap:8px;justify-content:center;margin:8px 0}
+#pp{min-width:64px;background:var(--acc);color:#0b0d14;font-weight:700}
+#seek{width:100%;accent-color:var(--acc)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#0e1120;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border-radius:0;background:none;padding:14px 0;color:var(--dim)}nav .on{color:var(--acc)}
+[hidden]{display:none!important}
+.row{display:flex;gap:8px}.row>button{white-space:nowrap}
+label{display:block;margin-top:14px;color:var(--dim);font-size:14px}
