@@ -364,3 +364,10 @@ button.sw.on{background:linear-gradient(135deg,#6f86ff,#b072ff);border-color:tra
 .acard .filebtn{text-transform:none;letter-spacing:0}
 .acard p:empty{display:none}
 .acard .row{gap:8px}.acard .row input{height:36px;padding:0 12px;font-size:14px}
+/* Lecteur : toujours entièrement au-dessus du menu du bas (mobile) */
+@media not all and (min-width:900px) and (hover:hover) and (pointer:fine){
+  #player:not(.full){bottom:calc(92px + env(safe-area-inset-bottom))}
+}
+#player.mini{grid-template-columns:1fr auto auto auto}
+#player.mini #closep{order:4;grid-row:auto}
+#player:not(.mini):not(.full) .np{padding-right:150px}
