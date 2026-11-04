@@ -487,7 +487,6 @@ showNight(); showViz();
   btn.onclick = () => set(mode === 'normal' ? 'mini' : 'normal');
   exp.onclick = () => set('full');
   $('.np').onclick = () => { if (mode === 'mini') set('normal'); };
-  set(mode);
 
   // Visualiseur : vraies fréquences si le traitement audio est branché (CORS), sinon animation synchronisée à la lecture.
   const cv = $('#viz'), g = cv.getContext('2d'), N = 28;
@@ -517,4 +516,5 @@ showNight(); showViz();
   function startViz() { if (!raf) raf = requestAnimationFrame(frame); }
   function stopViz() { cancelAnimationFrame(raf); raf = 0; }
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopViz(); else if (mode === 'full') startViz(); });
+  set(mode);
 })();
