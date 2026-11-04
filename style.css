@@ -245,3 +245,14 @@ select[data-dd]{display:none!important}
 .abody{flex:1;min-width:0}.abody h3{margin:2px 0 4px;font-size:17px}.abody p{margin:0 0 12px;font-size:14px}.abody p#a-msg{margin:8px 0 0}
 .abtn{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#0a0c18;font-weight:700;border:0;border-radius:999px;padding:10px 18px}
 .abody .row input{flex:1;min-width:0}
+/* Boutons moins arrondis : rectangles aux coins adoucis, cohérents partout */
+button,.ibtn,.wbtn,#back,#collapse,#expand,.ctl button,#pp,.chip,.tgl,.favpill,.abtn,.searchbar button,#install-btn,.ghost,.ddb,select,label.ghost,a.favpill{border-radius:12px}
+.seg,.searchbar,nav{border-radius:16px}
+.seg button,nav button{border-radius:11px}
+#pp{border-radius:20px}
+.badge,.rdpill{border-radius:8px}
+.toast{border-radius:14px}
+.sheet{border-radius:20px 20px 0 0}
+.ddm{border-radius:14px}.ddi{border-radius:9px}
+.eq i{border-radius:2px}
+@media (min-width:900px) and (hover:hover) and (pointer:fine){nav{border-radius:0}nav button{border-radius:10px}}
