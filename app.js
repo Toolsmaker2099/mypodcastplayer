@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.19';
+const APP_VERSION = '2026-11-04.20';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -298,12 +298,17 @@ const skipMap = () => { try { return JSON.parse(localStorage.getItem('skip.v1'))
 const skipFor = u => +skipMap()[u] || 0;
 const syncNav = () => { $('#prev').disabled = qi <= 0; $('#next').disabled = qi < 0 || qi >= queue.length - 1; };
 $('#prev').onclick = () => playAt(qi - 1); $('#next').onclick = () => playAt(qi + 1);
+const corsBad = new Set(), hostOf = u => { try { return new URL(u).host; } catch { return u; } };
+const note = t => { $('#np-show').textContent = t || curShow; };
+let curShow = '';
 function play(ep, show, art, feedUrl) {
+  curShow = show;
   syncNav();
-  audio.crossOrigin = (nightOn || vizReal) ? 'anonymous' : null;
-  audio.src = ep.url; audio.currentTime = 0; audio.play().catch(() => {});
+  audio.crossOrigin = ((nightOn || vizReal) && !corsBad.has(hostOf(ep.url))) ? 'anonymous' : null;
+  audio.src = ep.url; note('');
+  audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
   const skip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
-  if (skip > 0) audio.addEventListener('loadedmetadata', () => { if (audio.duration > skip) audio.currentTime = skip; }, { once: true });
+  if (skip > 0) audio.addEventListener('canplay', () => { if (audio.duration > skip) audio.currentTime = skip; }, { once: true });
   const cover = (ep.image || art || '').replace(/\d+x\d+bb/, '600x600bb');
   $('#np-art').src = cover; $('#np-art').style.visibility = cover ? 'visible' : 'hidden';
   $('#player').hidden = false; $('#np-title').textContent = ep.title; $('#np-show').textContent = show;
@@ -312,7 +317,7 @@ function play(ep, show, art, feedUrl) {
   }
 }
 audio.addEventListener('play', () => { $('#pp').textContent = '❚❚'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'playing'); });
-audio.addEventListener('pause', () => { $('#pp').textContent = '▶'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); applyPendingReload(); });
+audio.addEventListener('pause', () => { $('#pp').textContent = '▶'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); });
 const seekEl = $('#seek');
 let seeking = false;
 const clock = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(r).padStart(2, '0'); };
@@ -367,7 +372,7 @@ function checkSleep() {
 
 // ---------- Mises à jour : app + podcasts à chaque ouverture ----------
 let pendingReload = false;
-function applyPendingReload() { if (pendingReload && audio.paused) location.reload(); }
+function applyPendingReload() { if (pendingReload && !audio.src) location.reload(); } // jamais pendant ni après une lecture : la nouvelle version s'applique à la prochaine ouverture
 async function refreshFavs() {
   try { await Sync.pull(); } catch {}
   feedCache.clear();
@@ -444,11 +449,11 @@ function reloadCurrent(play) {
   audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = t; } catch {} if (play) audio.play().catch(() => {}); }, { once: true });
 }
 function graphFailed() {
-  const what = nightOn && vizReal ? 'le mode nuit et les barres réelles' : nightOn ? 'le mode nuit' : 'les barres réelles';
-  nightOn = false; vizReal = false; localStorage.setItem('night', '0'); localStorage.setItem('vizreal', '0'); showNight(); showViz();
-  alert("Ce podcast n'autorise pas le traitement audio (" + what + "). Désactivé.");
-  if (ctx) location.reload(); // le son resterait coupé une fois branché : on repart proprement
-  else { audio.crossOrigin = null; reloadCurrent(true); }
+  // Le fichier n'a pas pu être chargé avec CORS : on mémorise l'hébergeur et on relit sans traitement, sans interrompre l'écoute.
+  corsBad.add(hostOf(audio.src));
+  if (!ctx) { audio.crossOrigin = null; note('Traitement audio indisponible pour ce podcast (mode nuit / barres réelles ignorés).'); reloadCurrent(true); return; }
+  alert("Ce podcast n'autorise pas le traitement audio. Il sera relu sans (la page se recharge).");
+  location.reload();
 }
 // Branche le traitement audio : recharge le fichier avec CORS, puis branche seulement si le chargement réussit.
 function activateGraph() {
@@ -467,7 +472,12 @@ nightBtn.onclick = () => {
 const vizBtn = $('#vizreal');
 const showViz = () => { vizBtn.textContent = vizReal ? '▮▮ Barres réelles : oui' : '▮▮ Barres réelles : non'; vizBtn.style.color = vizReal ? 'var(--acc)' : ''; };
 vizBtn.onclick = () => { vizReal = !vizReal; localStorage.setItem('vizreal', vizReal ? '1' : '0'); showViz(); if (vizReal) activateGraph(); };
-audio.addEventListener('error', () => { if ((nightOn || vizReal) && audio.src) graphFailed(); });
+audio.addEventListener('error', () => {
+  if (!audio.src) return;
+  if ((nightOn || vizReal) && audio.crossOrigin && !corsBad.has(hostOf(audio.src))) { graphFailed(); return; }
+  const c = audio.error ? audio.error.code : 0;
+  note('Erreur de lecture' + (c ? ' (code ' + c + ')' : '') + ' : ' + ({ 2: 'réseau', 3: 'décodage', 4: 'fichier non lisible' }[c] || 'inconnue') + '. Touche ▶ pour réessayer.');
+});
 audio.addEventListener('canplay', () => { if ((nightOn || vizReal) && !ctx && audio.crossOrigin) { buildGraph(); ctx.resume(); nightParams(); } else if (ctx) ctx.resume(); });
 showNight(); showViz();
 
