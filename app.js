@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.3';
+const APP_VERSION = '2026-11-04.4';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -42,11 +42,15 @@ async function loadFeed(feedUrl) {
 // ---------- Vues ----------
 function setTitle(t, back) { $('#title').textContent = t; $('#back').hidden = !back; $('#back').onclick = back || null; }
 const fmtDate = d => { const t = Date.parse(d); return t ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; };
-function fmtDur(d) {
-  if (!d) return '';
+function durSec(d) {
+  if (!d) return 0;
   const p = String(d).split(':').map(Number);
-  let sec = p.length > 1 ? p.reduce((a, x) => a * 60 + (x || 0), 0) : p[0];
-  if (!sec || isNaN(sec)) return '';
+  const sec = p.length > 1 ? p.reduce((a, x) => a * 60 + (x || 0), 0) : p[0];
+  return sec > 0 ? sec : 0;
+}
+function fmtDur(d) {
+  const sec = durSec(d);
+  if (!sec) return '';
   const h = Math.floor(sec / 3600), m = Math.round(sec % 3600 / 60);
   return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
 }
@@ -93,12 +97,25 @@ async function openFeed(f, back) {
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
       <p class="d full">${esc(feed.desc)}</p><p><button id="fav">${isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'}</button></p>` +
-      feed.episodes.slice(0, 100).map((e, i) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="star" data-more aria-label="Détails">⌄</button><button class="star">▶</button></div>`).join('');
+      `<div class="filters"><select id="ord"><option value="desc">Plus récents d'abord</option><option value="asc">Plus anciens d'abord</option></select>
+        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select></div><div id="eps"></div>`;
+    const prefs = () => { try { return { order: 'desc', min: 0, ...JSON.parse(localStorage.getItem('epprefs')) }; } catch { return { order: 'desc', min: 0 }; } };
+    const p0 = prefs(); $('#ord').value = p0.order; $('#mind').value = String(p0.min);
+    const drawEps = () => {
+      const p = { order: $('#ord').value, min: +$('#mind').value };
+      try { localStorage.setItem('epprefs', JSON.stringify(p)); } catch {}
+      let list = feed.episodes.map((e, i) => ({ e, i, t: Date.parse(e.date) || 0 }));
+      if (p.min) list = list.filter(x => !durSec(x.e.dur) || durSec(x.e.dur) >= p.min * 60); // durée inconnue : conservé
+      list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
+      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="star" data-more aria-label="Détails">⌄</button><button class="star">▶</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
+    };
+    $('#ord').onchange = $('#mind').onchange = drawEps; drawEps();
     $('#fav').onclick = () => { toggleFav(feed); $('#fav').textContent = isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'; };
-    view.querySelectorAll('.ep').forEach(el => el.onclick = ev => {
+    $('#eps').onclick = ev => {
+      const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
       play(feed.episodes[el.dataset.i], feed.title, feed.image);
-    });
+    };
   } catch (err) { view.innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
 }
 function renderSettings() {
