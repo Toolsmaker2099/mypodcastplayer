@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.100';
+const APP_VERSION = '2026-11-04.101';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -331,7 +331,7 @@ const PRODUCERS = [
   ['France TV', /france t[ée]l[ée]visions|france\.?\s?tv/i], ['Radio France', /radio france|france (inter|culture|info|bleu|musique)|\bmouv|\bfip\b/i],
   ['RTL', /\brtl\b/i], ['RFI', /\brfi\b|radio france internationale/i], ['Arte', /\barte\b/i],
   ['RMC', /\brmc\b/i], ['RTBF', /\brtbf\b|auvio/i], ['RTS', /\brts\b|radio t[ée]l[ée]vision suisse/i], ['Radio-Canada', /radio-canada|ici radio-canada/i],
-  ['Binge Audio', /binge audio/i], ['Louie Media', /louie media|louie/i], ['Nouvelles Écoutes', /nouvelles [ée]coutes/i], ['Slate', /\bslate\b/i],
+  ['Binge Audio', /binge audio/i], ['Nouvelles Écoutes', /nouvelles [ée]coutes/i], ['Slate', /\bslate\b/i],
   ['Le Monde', /\ble monde\b/i], ['Libération', /lib[ée]ration/i], ['Le Figaro', /figaro/i], ['Les Echos', /les [ée]chos/i], ['Brut', /\bbrut\b/i], ['Bayard', /bayard/i], ['Podcastine', /podcastine/i], ['Arte Radio', /arte radio/i],
   ['BBC', /\bbbc\b/i], ['NPR', /\bnpr\b/i], ['Audible', /\baudible\b/i], ['Spotify Studios', /spotify/i],
 ];
