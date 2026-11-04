@@ -271,3 +271,4 @@ h1{min-width:0;flex:0 1 auto}#back{flex:none}
 .lrow{display:flex;align-items:center;gap:12px;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04);text-transform:none;letter-spacing:0;font-size:16px;color:var(--fg);cursor:pointer}
 .lrow input{width:20px;height:20px;accent-color:#8fa2ff;flex:none}
 .sheet .row input{flex:1;min-width:0}
+#favseg{margin:0 0 12px}.toast{max-width:90vw;text-align:center}

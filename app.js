@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.69';
+const APP_VERSION = '2026-11-04.71';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -88,7 +88,7 @@ function showItem(f, star) {
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
-  if (i >= 0) { l.splice(i, 1); const d = listsData(); if (d.members[f.feedUrl]) { delete d.members[f.feedUrl]; saveLists(d); } } else l.push({ feedUrl: f.feedUrl, title: f.title, image: f.image, author: f.author, genre: f.genre, count: f.count, last: f.last, desc: (f.desc || '').slice(0, 300) });
+  if (i >= 0) l.splice(i, 1); else l.push({ feedUrl: f.feedUrl, title: f.title, image: f.image, author: f.author, genre: f.genre, count: f.count, last: f.last, desc: (f.desc || '').slice(0, 300) });
   Sync.setFavs(l);
 }
 function render() {
@@ -97,7 +97,9 @@ function render() {
   ({ favs: renderFavs, search: renderSearch, add: renderAdd, settings: renderSettings })[tab]();
 }
 // ---------- Listes de favoris : « Tous les favoris » (principale, toujours là) + listes personnalisées ----------
-const listsData = () => { try { const d = JSON.parse(localStorage.getItem('lists.v1')); return { lists: (d && d.lists) || [], members: (d && d.members) || {} }; } catch { return { lists: [], members: {} }; } };
+// Les listes personnalisées sont indépendantes des « Coups de cœur » : retirer un podcast des coups de cœur ne le retire pas des autres listes (on garde donc sa fiche dans « pods »).
+const listsData = () => { try { const d = JSON.parse(localStorage.getItem('lists.v1')); return { lists: (d && d.lists) || [], members: (d && d.members) || {}, pods: (d && d.pods) || {} }; } catch { return { lists: [], members: {}, pods: {} }; } };
+const podSnap = f => ({ feedUrl: f.feedUrl, title: f.title, image: f.image, author: f.author, genre: f.genre, count: f.count, last: f.last, desc: (f.desc || '').slice(0, 300) });
 const saveLists = d => { try { localStorage.setItem('lists.v1', JSON.stringify(d)); } catch {} };
 const newId = () => Math.random().toString(36).slice(2, 8);
 function askName(title, value = '') {
@@ -110,13 +112,21 @@ function askName(title, value = '') {
   }));
 }
 function renderFavs() {
+  const ft = localStorage.getItem('favtab') === 'pl' ? 'pl' : 'pod';
+  const head = seg('favseg', [['pod', 'Podcasts'], ['pl', 'Playlists']], ft);
+  if (ft === 'pl') { renderPlaylists(); view.insertAdjacentHTML('afterbegin', head); bindFavSeg(); return; }
+  renderPodcastFavs(head);
+}
+function bindFavSeg() { const s = $('#favseg'); if (s) s.onclick = e => { const b = e.target.closest('button[data-v]'); if (b) { localStorage.setItem('favtab', b.dataset.v); renderFavs(); } }; }
+function renderPodcastFavs(head) {
   const all = Sync.favs(), d = listsData();
   let cur = localStorage.getItem('favlist') || 'all'; if (cur !== 'all' && !d.lists.some(x => x.id === cur)) cur = 'all';
-  const l = cur === 'all' ? all : all.filter(f => (d.members[f.feedUrl] || []).includes(cur));
-  const chips = `<div class="tglrow lchips"><button type="button" class="tgl${cur === 'all' ? ' on' : ''}" data-l="all">Tous les favoris</button>${d.lists.map(x => `<button type="button" class="tgl${cur === x.id ? ' on' : ''}" data-l="${x.id}">${esc(x.name)}</button>`).join('')}<button type="button" class="tgl" data-l="new">+ Nouvelle liste</button></div>` +
+  const l = cur === 'all' ? all : Object.keys(d.members).filter(u => d.members[u].includes(cur)).map(u => d.pods[u] || all.find(f => f.feedUrl === u)).filter(Boolean);
+  const chips = `<div class="tglrow lchips"><button type="button" class="tgl${cur === 'all' ? ' on' : ''}" data-l="all">Coups de cœur</button>${d.lists.map(x => `<button type="button" class="tgl${cur === x.id ? ' on' : ''}" data-l="${x.id}">${esc(x.name)}</button>`).join('')}<button type="button" class="tgl" data-l="new">+ Nouvelle liste</button></div>` +
     (cur !== 'all' ? '<div class="tglrow lmanage"><button type="button" class="tgl" data-l="rename">Renommer</button><button type="button" class="tgl" data-l="delete">Supprimer la liste</button></div>' : '');
-  const empty = cur === 'all' ? '<p class="dim">Aucun favori. Utilise l\'onglet Ajouter ou la recherche.</p>' : '<p class="dim">Cette liste est vide. Ouvre un podcast des favoris et touche « Listes » pour l\'y ajouter.</p>';
-  view.innerHTML = chips + (l.length ? l.map(f => showItem(f, true)).join('') : empty);
+  const empty = cur === 'all' ? '<p class="dim">Aucun coup de cœur. Utilise l\'onglet Ajouter ou la recherche.</p>' : '<p class="dim">Cette liste est vide. Ouvre un podcast des favoris et touche « Listes » pour l\'y ajouter.</p>';
+  view.innerHTML = head + chips + (l.length ? l.map(f => cur === 'all' ? showItem(f, true) : showItem(f, false).replace(/<\/div>$/, '<button class="ibtn" data-unlist aria-label="Retirer de la liste">✕</button></div>')).join('') : empty);
+  bindFavSeg();
   view.querySelectorAll('[data-l]').forEach(b => b.onclick = async () => {
     const k = b.dataset.l;
     if (k === 'new') { const n = await askName('Nouvelle liste'); if (n) { const dd = listsData(), id = newId(); dd.lists.push({ id, name: n }); saveLists(dd); localStorage.setItem('favlist', id); renderFavs(); } return; }
@@ -125,11 +135,11 @@ function renderFavs() {
     localStorage.setItem('favlist', k); renderFavs();
   });
   view.querySelectorAll('.item').forEach((el, i) => el.onclick = ev => {
+    if (ev.target.closest('[data-unlist]')) { // retire seulement de cette liste
+      const dd = listsData(), u = l[i].feedUrl; dd.members[u] = (dd.members[u] || []).filter(x => x !== cur); if (!dd.members[u].length) { delete dd.members[u]; delete dd.pods[u]; } saveLists(dd);
+      el.classList.add('removed'); return;
+    }
     if (ev.target.closest('[data-star]')) {
-      if (cur !== 'all') { // dans une liste personnalisée : on retire seulement de cette liste
-        const dd = listsData(), u = l[i].feedUrl; dd.members[u] = (dd.members[u] || []).filter(x => x !== cur); if (!dd.members[u].length) delete dd.members[u]; saveLists(dd);
-        el.classList.add('removed'); setStar(ev.target.closest('[data-star]'), false); return;
-      }
       toggleFav(l[i]); // retire (ou remet) le favori d'un clic ; l'élément disparaît à la prochaine ouverture de la liste
       const on = Sync.favs().some(x => x.feedUrl === l[i].feedUrl);
       setStar(ev.target.closest('[data-star]'), on); el.classList.toggle('removed', !on);
@@ -137,6 +147,62 @@ function renderFavs() {
     }
     openFeed(l[i]);
   });
+}
+// ---------- Playlists d'épisodes (tous podcasts confondus, ordre libre) ----------
+const plData = () => { try { const d = JSON.parse(localStorage.getItem('playlists.v1')); return Array.isArray(d) ? d : []; } catch { return []; } };
+const savePl = l => { try { localStorage.setItem('playlists.v1', JSON.stringify(l)); } catch {} };
+const epSnap = (e, feed) => ({ url: e.url, title: e.title, dur: e.dur || '', image: e.image || '', date: e.date || '', show: feed.title, art: feed.image || '', feed: feed.feedUrl });
+const plTotal = p => { const s = p.items.reduce((t, x) => t + durSec(x.dur), 0); return s ? ' · ' + fmtDur(s) : ''; };
+function playlistPicker(snaps) { // ajoute des épisodes à une playlist (ou en crée une)
+  withShare(() => {
+    const draw = () => {
+      const l = plData();
+      m.querySelector('.lbody').innerHTML = (l.map(p => `<button type="button" class="lrow plpick" data-id="${p.id}"><span>${esc(p.name)}</span><small class="dim">${p.items.length} épisode${p.items.length > 1 ? 's' : ''}</small></button>`).join('')) || '<p class="dim">Aucune playlist pour l\'instant : crées-en une.</p>';
+      m.querySelectorAll('.plpick').forEach(b => b.onclick = () => {
+        const all = plData(), p = all.find(x => x.id === b.dataset.id); let n = 0;
+        snaps.forEach(s => { if (!p.items.some(x => x.url === s.url)) { p.items.push(s); n++; } });
+        savePl(all); m.close(); toast(n ? `${n} épisode${n > 1 ? 's ajoutés' : ' ajouté'} à « ${p.name} »` : 'Déjà dans « ' + p.name + ' »');
+      });
+    };
+    const m = modal(`<h3>Ajouter à une playlist</h3><p class="dim sm">${snaps.length} épisode${snaps.length > 1 ? 's' : ''}</p><div class="lbody"></div><button type="button" id="plnew" class="abtn">+ Nouvelle playlist</button><button data-close class="ghost">Annuler</button>`);
+    m.querySelector('#plnew').onclick = async () => { const n = await askName('Nouvelle playlist'); if (n) { const all = plData(); all.push({ id: newId(), name: n, items: [] }); savePl(all); } draw(); };
+    draw();
+  });
+}
+function playPlaylist(p, start = 0) {
+  if (!p.items.length) return;
+  queue = p.items.map(x => ({ title: x.title, url: x.url, dur: x.dur, image: x.image, date: x.date, _show: x.show, _art: x.art, _feed: x.feed }));
+  qCtx = { show: '', art: '', feedUrl: '', auto: true }; playAt(start);
+}
+function renderPlaylists() {
+  const l = plData();
+  view.innerHTML = `<div class="tglrow"><button type="button" class="tgl" id="plcreate">+ Nouvelle playlist</button></div>` + (l.length ? l.map(p => `<div class="item pl" data-id="${p.id}"><div class="aic">${IC.list}</div><div class="t"><b>${esc(p.name)}</b><small class="m">${p.items.length} épisode${p.items.length > 1 ? 's' : ''}${plTotal(p)}</small></div><button class="ibtn playb" data-play aria-label="Lire">${IC.play}</button></div>`).join('') : '<p class="dim">Aucune playlist. Crée-en une, puis ajoute des épisodes avec le bouton « + » d\'un épisode.</p>');
+  $('#plcreate').onclick = async () => { const n = await askName('Nouvelle playlist'); if (n) { const all = plData(); all.push({ id: newId(), name: n, items: [] }); savePl(all); renderFavs(); } };
+  view.querySelectorAll('.item.pl').forEach(el => el.onclick = ev => {
+    const p = plData().find(x => x.id === el.dataset.id); if (!p) return;
+    if (ev.target.closest('[data-play]')) playPlaylist(p, 0); else openPlaylist(p.id);
+  });
+}
+function openPlaylist(id) {
+  const prev = tab === 'shared' ? 'favs' : tab; tab = 'shared';
+  const back = () => { tab = prev; render(); };
+  const draw = () => {
+    const all = plData(), p = all.find(x => x.id === id); if (!p) { back(); return; }
+    setTitle(p.name, back);
+    view.innerHTML = `<div class="tglrow"><button type="button" class="abtn" id="plplay">▶ Tout lire</button><button type="button" class="tgl" id="plren">Renommer</button><button type="button" class="tgl" id="pldel">Supprimer</button></div><p class="dim">${p.items.length} épisode${p.items.length > 1 ? 's' : ''}${plTotal(p)}</p>` +
+      (p.items.map((x, i) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(x.title)}</b><small class="m">${esc([x.show, fmtDur(x.dur)].filter(Boolean).join(' · '))}</small></div><button class="ibtn" data-up aria-label="Monter"${i === 0 ? ' disabled' : ''}>▲</button><button class="ibtn" data-down aria-label="Descendre"${i === p.items.length - 1 ? ' disabled' : ''}>▼</button><button class="ibtn" data-rm aria-label="Retirer">✕</button><button class="ibtn playb" data-play aria-label="Lire">${IC.play}</button></div>`).join('') || '<p class="dim">Playlist vide. Ajoute des épisodes avec le bouton « + » d\'un épisode.</p>');
+    $('#plplay').onclick = () => playPlaylist(p, 0);
+    $('#plren').onclick = async () => { const n = await askName('Renommer la playlist', p.name); if (n) { const a2 = plData(); a2.find(x => x.id === id).name = n; savePl(a2); draw(); } };
+    $('#pldel').onclick = () => { if (confirm(`Supprimer la playlist « ${p.name} » ?`)) { savePl(plData().filter(x => x.id !== id)); back(); } };
+    view.querySelectorAll('.item.ep').forEach(el => el.onclick = ev => {
+      const i = +el.dataset.i, a2 = plData(), q = a2.find(x => x.id === id), it = q.items;
+      if (ev.target.closest('[data-up]') && i > 0) { [it[i - 1], it[i]] = [it[i], it[i - 1]]; savePl(a2); draw(); }
+      else if (ev.target.closest('[data-down]') && i < it.length - 1) { [it[i + 1], it[i]] = [it[i], it[i + 1]]; savePl(a2); draw(); }
+      else if (ev.target.closest('[data-rm]')) { it.splice(i, 1); savePl(a2); draw(); }
+      else if (ev.target.closest('[data-play]') || ev.currentTarget === el) playPlaylist(q, i);
+    });
+  };
+  draw();
 }
 // Choix des listes d'un podcast (fiche du podcast)
 function listsSheet(feed, onDone) {
@@ -146,9 +212,8 @@ function listsSheet(feed, onDone) {
       const d = listsData(), mem = d.members[feed.feedUrl] || [];
       m.querySelector('.lbody').innerHTML = d.lists.length ? d.lists.map(x => `<label class="lrow"><input type="checkbox" data-id="${x.id}"${mem.includes(x.id) ? ' checked' : ''}><span>${esc(x.name)}</span></label>`).join('') : '<p class="dim">Aucune liste personnalisée pour l\'instant.</p>';
       m.querySelectorAll('input[data-id]').forEach(c => c.onchange = () => {
-        if (c.checked && !isFavNow()) toggleFav(feed); // un podcast d'une liste est toujours dans les favoris
         const dd = listsData(), u = feed.feedUrl, s = new Set(dd.members[u] || []); c.checked ? s.add(c.dataset.id) : s.delete(c.dataset.id);
-        if (s.size) dd.members[u] = [...s]; else delete dd.members[u]; saveLists(dd);
+        if (s.size) { dd.members[u] = [...s]; dd.pods[u] = podSnap(feed); } else { delete dd.members[u]; delete dd.pods[u]; } saveLists(dd);
       });
     };
     const m = modal(`<h3>Listes</h3><p class="dim sm">${esc(feed.title)}</p><div class="lbody"></div><button type="button" id="lnew" class="abtn">+ Nouvelle liste</button><button data-close class="ghost">Terminer</button>`);
@@ -313,18 +378,19 @@ async function openFeed(f, back) {
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
       <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button> <button id="lists" class="favpill">${IC.list}<span>Listes</span></button></p>` +
       `<div class="filters fgrid"><select id="ord"><option value="desc">Récents</option><option value="asc">Anciens</option></select>
-        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select></div><div class="tglrow"><button id="chain" type="button" class="tgl"></button><button id="track" type="button" class="tgl"></button><button id="selbtn" type="button" class="tgl" hidden></button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
+        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select></div><div class="tglrow"><button id="chain" type="button" class="tgl"></button><button id="track" type="button" class="tgl"></button><button id="selbtn" type="button" class="tgl" hidden></button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="pl">+ Playlist</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
     const tgl = (id, ic, label, on) => { const b = $('#' + id); b.innerHTML = labeled(ic, label); b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', !!on); };
     const showChain = () => tgl('chain', IC.chain, 'Enchaîner', chain);
     $('#chain').onclick = () => { chain = !chain; try { localStorage.setItem('chain', chain ? '1' : '0'); } catch {} showChain(); };
     showChain();
     let selMode = false, curListIdx = []; const sel = new Set();
-    const showSel = () => { $('#selbar').hidden = !selMode; $('#selbtn').classList.toggle('on', selMode); $('#selcnt').textContent = sel.size ? sel.size + ' sélectionné' + (sel.size > 1 ? 's' : '') : 'Touche des épisodes pour les sélectionner'; $('#selbar').querySelectorAll('[data-a=read],[data-a=unread]').forEach(b => { b.disabled = !sel.size; }); };
+    const showSel = () => { $('#selbar').hidden = !selMode; $('#selbtn').classList.toggle('on', selMode); $('#selcnt').textContent = sel.size ? sel.size + ' sélectionné' + (sel.size > 1 ? 's' : '') : 'Touche des épisodes pour les sélectionner'; $('#selbar').querySelectorAll('[data-a=read],[data-a=unread],[data-a=pl]').forEach(b => { b.disabled = !sel.size; }); };
     $('#selbtn').onclick = () => { selMode = !selMode; sel.clear(); showSel(); drawEps(); };
     $('#selbar').onclick = ev => {
       const b = ev.target.closest('button[data-a]'); if (!b) return; const act = b.dataset.a;
       if (act === 'all') { if (sel.size >= curListIdx.length) sel.clear(); else curListIdx.forEach(i => sel.add(i)); }
       else if (act === 'done') { selMode = false; sel.clear(); }
+      else if (act === 'pl') { if (!sel.size) return; playlistPicker([...sel].sort((x, y) => x - y).map(i => epSnap(feed.episodes[i], feed))); return; }
       else { if (!sel.size) return; const n = sel.size; setProgMany(feed.feedUrl, [...sel].map(i => feed.episodes[i]), act === 'read' ? { r: 1, t: 0 } : { r: 0, t: 0 }); sel.clear(); toast(n + (n > 1 ? ' épisodes marqués ' : ' épisode marqué ') + (act === 'read' ? 'lu' : 'non lu') + (n > 1 ? 's' : '')); }
       showSel(); drawEps();
     };
@@ -344,7 +410,7 @@ async function openFeed(f, back) {
       if (tr && p.read === 'read') list = list.filter(x => pg(x.e).r);
       list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
       curList = list.slice(0, 150).map(x => x.e); curListIdx = list.slice(0, 150).map(x => x.i);
-      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr ? (pg(e).r ? ' isread' : ' unr') : ''}${selMode ? ' selmode' : ''}${opened.has(String(i)) ? ' open' : ''}${selMode && sel.has(i) ? ' sel' : ''}" data-i="${i}">${selMode ? '<span class="chk" aria-hidden="true">✓</span>' : ''}<div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<span class="rdpill">✓ Lu</span>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div>${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
+      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr ? (pg(e).r ? ' isread' : ' unr') : ''}${selMode ? ' selmode' : ''}${opened.has(String(i)) ? ' open' : ''}${selMode && sel.has(i) ? ' sel' : ''}" data-i="${i}">${selMode ? '<span class="chk" aria-hidden="true">✓</span>' : ''}<div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<span class="rdpill">✓ Lu</span>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div>${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn" data-pladd aria-label="Ajouter à une playlist">＋</button><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
     $('#ord').onchange = $('#mind').onchange = $('#rd').onchange = drawEps; showTrack(); drawEps();
     epRedraw = () => { if ($('#eps') && $('#ord') && $('#ord').isConnected) { try { drawEps(); } catch {} } };
@@ -361,6 +427,7 @@ async function openFeed(f, back) {
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
+      if (ev.target.closest('[data-pladd]')) { playlistPicker([epSnap(feed.episodes[el.dataset.i], feed)]); return; }
       if (ev.target.closest('[data-read]')) { const e = feed.episodes[el.dataset.i], g = getProg(feed.feedUrl, e) || {}; setProg(feed.feedUrl, e, g.r ? { r: 0, t: 0 } : { r: 1, t: 0 }); drawEps(); return; }
       if (selMode) { const i = +el.dataset.i; sel.has(i) ? sel.delete(i) : sel.add(i); el.classList.toggle('sel', sel.has(i)); showSel(); return; }
       const ep = feed.episodes[el.dataset.i];
@@ -460,8 +527,9 @@ onAudio('timeupdate', () => saveProg(false));
 onAudio('pause', () => { saveProg(true); epRedraw(); });
 onAudio('ended', markDone);
 let chain = localStorage.getItem('chain') === '1', curList = [], queue = [], qi = -1, qCtx = null;
-function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; play(queue[i], qCtx.show, qCtx.art, qCtx.feedUrl); return true; }
-onAudio('ended', () => { if (chain) playAt(qi + 1); });
+function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; const q = queue[i]; play(q, q._show ?? qCtx.show, q._art ?? qCtx.art, q._feed ?? qCtx.feedUrl); return true; }
+const advance = () => chain || !!(qCtx && qCtx.auto); // une playlist s'enchaîne toujours
+onAudio('ended', () => { if (advance()) playAt(qi + 1); });
 // Secondes à sauter par podcast (une décimale, virgule ou point acceptés) : réglages fixes, pas une progression de lecture.
 const num = s => { const v = parseFloat(String(s).replace(',', '.')); return isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : 0; };
 const numMap = key => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } };
@@ -523,7 +591,7 @@ let endT = 0, curDurHint = 0;
 const effDur = () => (isFinite(audio.duration) && audio.duration > 0) ? audio.duration : curDurHint;
 function fireEnd() {
   earlyDone = true; clearTimeout(endT); markDone();
-  if (chain && queue.length && qi < queue.length - 1) playAt(qi + 1);
+  if (advance() && queue.length && qi < queue.length - 1) playAt(qi + 1);
   else { audio.pause(); const d = audio.duration; if (isFinite(d)) { try { audio.currentTime = d; } catch {} } }
 }
 function armEnd() {

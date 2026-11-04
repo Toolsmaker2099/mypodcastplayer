@@ -11,7 +11,7 @@ const Sync = (() => {
   const setCfg = c => save(CFG_KEY, c);
   const favs = () => load(FAV_KEY, []);
   // Réglages synchronisés (la clé/secret Podcast Index et l'état du lecteur propre à l'appareil n'en font pas partie).
-  const SET_KEYS = ['epprefs.v2', 'skip.v1', 'skipend.v1', 'chain', 'night', 'pi.prefs', 'src', 'apple.genre', 'track.v1', 'lists.v1'], AT_KEY = 'set.at.v1';
+  const SET_KEYS = ['epprefs.v2', 'skip.v1', 'skipend.v1', 'chain', 'night', 'pi.prefs', 'src', 'apple.genre', 'track.v1', 'lists.v1', 'playlists.v1'], AT_KEY = 'set.at.v1';
   const PROG_KEY = 'prog.v1';
   const rawSet = Storage.prototype.setItem;
   // Progression par épisode : fusion entrée par entrée, la plus récente l'emporte.
