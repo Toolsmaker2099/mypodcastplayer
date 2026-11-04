@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.17';
+const APP_VERSION = '2026-11-04.18';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -133,10 +133,10 @@ function renderSearch() {
       <select id="picat"><option value="">Toutes catégories</option></select>
       <select id="pisort"><option value="rel">Pertinence / classement</option><option value="new">Plus récents</option><option value="eps">Plus d'épisodes</option><option value="az">Titre A–Z</option></select></div>` : ''}
     <form id="sf" class="row"><input type="search" id="q" placeholder="Rechercher un podcast…" value="${esc(searchQ)}"><button>OK</button></form>
-    <div class="chips">${PRODUCERS.map(([n]) => `<button type="button" class="chip${n === searchProd ? ' on' : ''}" data-p="${esc(n)}">${esc(n)}</button>`).join('')}</div><div id="res"></div>`;
+    ${searchSrc === 'pi' ? `<div class="chips">${PRODUCERS.map(([n]) => `<button type="button" class="chip${n === searchProd ? ' on' : ''}" data-p="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}<div id="res"></div>`;
   const run = async () => {
     const q = $('#q').value.trim(); searchQ = q;
-    const prod = PRODUCERS.find(p => p[0] === searchProd);
+    const prod = searchSrc === 'pi' ? PRODUCERS.find(p => p[0] === searchProd) : null;
     if (!q && !prod && !(searchSrc === 'pi' && piPrefs().mode !== 'search')) { $('#res').innerHTML = ''; return; }
     $('#res').innerHTML = '<p class="dim">Recherche…</p>';
     try {
@@ -195,7 +195,7 @@ function renderSearch() {
     ['pimode', 'pilang', 'picat', 'pisort'].forEach(id => $('#' + id).onchange = save);
     piCategories().then(cs => { $('#picat').innerHTML = '<option value="">Toutes catégories</option>' + cs.map(c => ({ c, l: catFr(c) })).sort((x, y) => x.l.localeCompare(y.l, 'fr')).map(({ c, l }) => `<option value="${esc(c)}">${esc(l)}</option>`).join(''); $('#picat').value = p.cat; }).catch(() => {});
   }
-  if (searchQ || searchProd || (searchSrc === 'pi' && piPrefs().mode !== 'search')) run();
+  if (searchQ || (searchSrc === 'pi' && searchProd) || (searchSrc === 'pi' && piPrefs().mode !== 'search')) run();
 }
 async function openFeed(f, back) {
   setTitle(f.title, back || (() => render()));
