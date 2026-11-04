@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.10';
+const APP_VERSION = '2026-11-04.11';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -197,7 +197,10 @@ function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; play(
 audio.addEventListener('ended', () => { if (chain) playAt(qi + 1); });
 const skipMap = () => { try { return JSON.parse(localStorage.getItem('skip.v1')) || {}; } catch { return {}; } };
 const skipFor = u => +skipMap()[u] || 0;
+const syncNav = () => { $('#prev').disabled = qi <= 0; $('#next').disabled = qi < 0 || qi >= queue.length - 1; };
+$('#prev').onclick = () => playAt(qi - 1); $('#next').onclick = () => playAt(qi + 1);
 function play(ep, show, art, feedUrl) {
+  syncNav();
   audio.crossOrigin = nightOn ? 'anonymous' : null;
   audio.src = ep.url; audio.currentTime = 0; audio.play().catch(() => {});
   const skip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
