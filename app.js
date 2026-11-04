@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.71';
+const APP_VERSION = '2026-11-04.72';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -253,7 +253,24 @@ const CAT_FR = {
   'Sports': 'Sport', 'Baseball': 'Baseball', 'Basketball': 'Basket-ball', 'Cricket': 'Cricket', 'Fantasy Sports': 'Sports fantasy', 'Football': 'Football américain', 'Golf': 'Golf', 'Hockey': 'Hockey', 'Rugby': 'Rugby', 'Running': 'Course à pied', 'Soccer': 'Football', 'Swimming': 'Natation', 'Tennis': 'Tennis', 'Volleyball': 'Volley-ball', 'Wilderness': 'Plein air', 'Wrestling': 'Catch',
   'Technology': 'Technologie', 'True Crime': 'Faits divers', 'TV & Film': 'Télévision et cinéma', 'After Shows': 'Après-émissions', 'Film History': 'Histoire du cinéma', 'Film Interviews': 'Interviews cinéma', 'Film Reviews': 'Critiques de films', 'TV Reviews': 'Critiques de séries',
 };
-const catFr = c => CAT_FR[c] || c;
+// Catégories telles que Podcast Index les nomme (mots simples) : traduction complète, insensible à la casse.
+const CAT_PI = {
+  'after-shows': 'Après-émissions', 'alternative': 'Santé alternative', 'animals': 'Animaux', 'animation': 'Animation', 'arts': 'Arts', 'astronomy': 'Astronomie', 'automotive': 'Automobile', 'aviation': 'Aviation',
+  'baseball': 'Baseball', 'basketball': 'Basket-ball', 'beauty': 'Beauté', 'books': 'Livres', 'buddhism': 'Bouddhisme', 'business': 'Économie et affaires', 'careers': 'Carrières', 'chemistry': 'Chimie',
+  'christianity': 'Christianisme', 'climate': 'Climat', 'comedy': 'Humour', 'commentary': 'Commentaires', 'courses': 'Cours', 'crafts': 'Loisirs créatifs', 'cricket': 'Cricket', 'cryptocurrency': 'Cryptomonnaies',
+  'culture': 'Culture', 'daily': 'Quotidien', 'design': 'Design', 'documentary': 'Documentaire', 'drama': 'Drame', 'earth': 'Sciences de la Terre', 'education': 'Éducation', 'entertainment': 'Divertissement',
+  'entrepreneurship': 'Entrepreneuriat', 'family': 'Famille', 'fantasy': 'Fantasy', 'fashion': 'Mode', 'fiction': 'Fiction', 'film': 'Cinéma', 'fitness': 'Fitness', 'food': 'Cuisine', 'football': 'Football américain',
+  'games': 'Jeux', 'garden': 'Jardin', 'golf': 'Golf', 'government': 'Gouvernement', 'health': 'Santé', 'hinduism': 'Hindouisme', 'history': 'Histoire', 'hobbies': 'Passe-temps', 'hockey': 'Hockey', 'home': 'Maison',
+  'how-to': 'Tutoriels', 'improv': 'Improvisation', 'interviews': 'Interviews', 'investing': 'Investissement', 'islam': 'Islam', 'journals': 'Journaux', 'judaism': 'Judaïsme', 'kids': 'Enfants', 'language': 'Langues',
+  'learning': 'Apprentissage', 'leisure': 'Loisirs', 'life': 'Sciences de la vie', 'management': 'Management', 'manga': 'Manga', 'marketing': 'Marketing', 'mathematics': 'Mathématiques', 'medicine': 'Médecine',
+  'mental': 'Santé mentale', 'music': 'Musique', 'natural': 'Sciences naturelles', 'nature': 'Nature', 'news': 'Actualités', 'non-profit': 'Associatif', 'nutrition': 'Nutrition', 'parenting': 'Parentalité',
+  'performing': 'Spectacle vivant', 'personal': 'Personnel', 'pets': 'Animaux de compagnie', 'philosophy': 'Philosophie', 'physics': 'Physique', 'places': 'Lieux', 'politics': 'Politique', 'relationships': 'Relations',
+  'religion': 'Religion', 'reviews': 'Critiques', 'role-playing': 'Jeux de rôle', 'rugby': 'Rugby', 'running': 'Course à pied', 'science': 'Sciences', 'self-improvement': 'Développement personnel',
+  'sexuality': 'Sexualité', 'soccer': 'Football', 'social': 'Sciences sociales', 'society': 'Société', 'spirituality': 'Spiritualité', 'sports': 'Sport', 'stand-up': 'Stand-up', 'stories': 'Histoires',
+  'swimming': 'Natation', 'tabletop': 'Jeux de plateau', 'tech': 'Tech', 'technology': 'Technologie', 'tennis': 'Tennis', 'travel': 'Voyages', 'true crime': 'Faits divers', 'tv': 'Télévision',
+  'video-games': 'Jeux vidéo', 'visual': 'Arts visuels', 'volleyball': 'Volley-ball', 'weather': 'Météo', 'wilderness': 'Plein air', 'wrestling': 'Catch', 'sports news': 'Actualité sportive',
+};
+const catFr = c => CAT_FR[c] || CAT_PI[String(c).toLowerCase().trim()] || CAT_PI[String(c).toLowerCase().replace(/\s*&\s*/g, ' and ').replace(/\s+/g, '-')] || c;
 let piCats = null;
 const piCategories = async () => piCats || (piCats = (await piGet('categories/list')).map(c => c.name).sort((x, y) => x.localeCompare(y, 'fr')));
 const piPrefs = () => { const d = { mode: 'search', lang: 'fr', cat: '', sort: 'rel', clean: false, full: false }; try { const s = JSON.parse(localStorage.getItem('pi.prefs')); return { ...d, ...s, mode: ['search', 'title', 'trending', 'recent', 'new'].includes(s && s.mode) ? s.mode : 'search' }; } catch { return d; } };
