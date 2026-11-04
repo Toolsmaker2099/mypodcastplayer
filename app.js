@@ -120,6 +120,7 @@ function renderSettings() {
 
 // ---------- Lecture (toujours depuis 0, rien n'est mémorisé) ----------
 function play(ep, show, art) {
+  audio.crossOrigin = nightOn ? 'anonymous' : null;
   audio.src = ep.url; audio.currentTime = 0; audio.play().catch(() => {});
   $('#player').hidden = false; $('#np-title').textContent = ep.title; $('#np-show').textContent = show;
   if ('mediaSession' in navigator) {
@@ -211,3 +212,47 @@ render(); checkUpdates(); refreshFavs();
   btn.onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; box.hidden = true; };
   window.addEventListener('appinstalled', () => { box.hidden = true; });
 })();
+
+// ---------- Mode nuit (compresseur : atténue les passages forts) ----------
+// Web Audio exige un fichier servi avec CORS ; sinon le son serait coupé. On teste donc avant de brancher le traitement.
+let nightOn = localStorage.getItem('night') === '1', ctx = null, comp = null, makeup = null, nightMsg = '';
+const nightBtn = $('#night');
+const showNight = () => { nightBtn.textContent = nightOn ? '☼ Nuit on' : '☼ Nuit off'; nightBtn.style.color = nightOn ? 'var(--acc)' : ''; };
+function nightParams() {
+  if (!comp) return;
+  comp.threshold.value = nightOn ? -45 : 0; comp.ratio.value = nightOn ? 12 : 1;
+  comp.knee.value = 30; comp.attack.value = 0.005; comp.release.value = 0.3;
+  makeup.gain.value = nightOn ? 1.7 : 1;
+}
+function buildGraph() {
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = ctx.createMediaElementSource(audio);
+  comp = ctx.createDynamicsCompressor(); makeup = ctx.createGain();
+  src.connect(comp); comp.connect(makeup); makeup.connect(ctx.destination);
+}
+function reloadCurrent(play) {
+  if (!audio.src) return;
+  const t = audio.currentTime, u = audio.src;
+  audio.src = u; audio.load();
+  audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = t; } catch {} if (play) audio.play().catch(() => {}); }, { once: true });
+}
+function nightFailed() {
+  nightOn = false; localStorage.setItem('night', '0'); showNight();
+  alert("Ce podcast n'autorise pas le mode nuit (fichier audio non compatible). Mode nuit désactivé.");
+  if (ctx) location.reload(); // le son resterait coupé une fois branché : on repart proprement
+  else { audio.crossOrigin = null; reloadCurrent(true); }
+}
+nightBtn.onclick = () => {
+  nightOn = !nightOn; localStorage.setItem('night', nightOn ? '1' : '0'); showNight();
+  if (!nightOn) { nightParams(); return; }
+  if (audio.src && !ctx) { // première activation : recharger avec CORS puis brancher si OK
+    const wasPlaying = !audio.paused;
+    audio.crossOrigin = 'anonymous';
+    audio.addEventListener('canplay', () => { buildGraph(); ctx.resume(); nightParams(); }, { once: true });
+    reloadCurrent(wasPlaying);
+  } else { if (ctx) ctx.resume(); nightParams(); }
+};
+audio.addEventListener('error', () => { if (nightOn && audio.src) nightFailed(); });
+audio.addEventListener('canplay', () => { if (nightOn && !ctx && audio.crossOrigin) { buildGraph(); ctx.resume(); nightParams(); } else if (ctx) ctx.resume(); });
+showNight();
