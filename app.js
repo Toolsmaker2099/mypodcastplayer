@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.31';
+const APP_VERSION = '2026-11-04.32';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -579,4 +579,26 @@ showNight(); showViz();
   function stopViz() { cancelAnimationFrame(raf); raf = 0; }
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopViz(); else if (mode === 'full') startViz(); });
   set(mode);
+})();
+
+// ---------- Égaliseur du lecteur réduit/normal : suit le vrai son quand l'analyse est branchée ----------
+(() => {
+  const pl = $('#player'), bars = [...document.querySelectorAll('.eq i')];
+  const bands = [[100, 400], [400, 1200], [1200, 3000], [3000, 7000]];
+  let lv = [0, 0, 0, 0], peak = 0.3, buf = null;
+  function tick() {
+    requestAnimationFrame(tick);
+    if (document.hidden || pl.hidden) return;
+    const live = !!analyser && !!ctx && ctx.state === 'running' && !audio.paused && !pl.classList.contains('full');
+    pl.classList.toggle('live', live);
+    if (!live) { if (bars[0].style.height) bars.forEach(b => (b.style.height = '')); return; }
+    buf = buf || new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(buf);
+    const binHz = ctx.sampleRate / analyser.fftSize; let mx = 0; const raw = bands.map(([f0, f1], i) => {
+      let s = 0; for (let b = Math.floor(f0 / binHz); b <= Math.min(buf.length - 1, Math.ceil(f1 / binHz)); b++) s = Math.max(s, buf[b]);
+      const v = (s / 255) * (1 + 0.6 * i); mx = Math.max(mx, v); return v;
+    });
+    peak = Math.max(0.25, peak * 0.995, mx);
+    bars.forEach((el, i) => { const t = Math.pow(Math.min(1, raw[i] / peak), 1.3); lv[i] += (t - lv[i]) * (t > lv[i] ? 0.55 : 0.15); el.style.height = (15 + 85 * lv[i]).toFixed(0) + '%'; });
+  }
+  requestAnimationFrame(tick);
 })();

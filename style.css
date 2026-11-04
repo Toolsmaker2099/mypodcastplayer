@@ -129,3 +129,4 @@ body.noscroll{overflow:hidden}
 #player.full .eq{display:none}
 #player.full .np .tl{justify-content:center}
 @media (prefers-reduced-motion:reduce){#player.playing .eq i{animation:none;height:70%}}
+#player.live .eq i{animation:none!important;transition:height .05s linear}
