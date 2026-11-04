@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.40';
+const APP_VERSION = '2026-11-04.41';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -535,6 +535,11 @@ function graphFailed() {
   note('Mode nuit et visualiseur réel indisponibles pour ce podcast.');
 }
 const onceMeta = fn => audio.addEventListener('loadedmetadata', fn, { once: true });
+Sync.onSettings = () => { // réglages reçus de la sauvegarde
+  chain = localStorage.getItem('chain') === '1'; nightOn = localStorage.getItem('night') === '1'; searchSrc = localStorage.getItem('src') || '';
+  curSkip = skipFor(curFeedUrl); curSkipEnd = skipEndFor(curFeedUrl);
+  try { showNight(); nightParams(); } catch {}
+};
 nightBtn.onclick = () => { nightOn = !nightOn; localStorage.setItem('night', nightOn ? '1' : '0'); showNight(); nightParams(); };
 onAudio('error', () => {
   if (!audio.src) return;

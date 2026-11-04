@@ -8,6 +8,15 @@ const Sync = (() => {
   const cfg = () => load(CFG_KEY, {});          // { code: 'XXXX-XXXX-XXXX-XXXX', proxy: 'https://…' }
   const setCfg = c => save(CFG_KEY, c);
   const favs = () => load(FAV_KEY, []);
+  // Réglages synchronisés (la clé/secret Podcast Index et l'état du lecteur propre à l'appareil n'en font pas partie).
+  const SET_KEYS = ['epprefs.v2', 'skip.v1', 'skipend.v1', 'chain', 'night', 'pi.prefs', 'src'], AT_KEY = 'set.at.v1';
+  const rawSet = Storage.prototype.setItem;
+  const settings = () => { const s = {}; SET_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) s[k] = v; }); const p = cfg().proxy; if (p) s.proxy = p; return s; };
+  const setAt = () => +localStorage.getItem(AT_KEY) || 0;
+  function applySettings(s) {
+    SET_KEYS.forEach(k => { if (k in s) rawSet.call(localStorage, k, s[k]); else localStorage.removeItem(k); });
+    const c = cfg(); if (s.proxy) c.proxy = s.proxy; else delete c.proxy; rawSet.call(localStorage, CFG_KEY, JSON.stringify(c));
+  }
   const enabled = () => /^[A-Z0-9]{4}(-[A-Z0-9]{4}){3,7}$/.test((cfg().code || '').toUpperCase());
   const url = () => BASE + cfg().code.toUpperCase();
 
@@ -26,7 +35,7 @@ const Sync = (() => {
   async function put(list, ver) {
     const h = { 'Content-Type': 'application/json' };
     h['X-Sauvegarde-Version'] = ver || 'new';
-    const r = await fetch(url(), { method: 'PUT', headers: h, body: JSON.stringify({ favs: list }) });
+    const r = await fetch(url(), { method: 'PUT', headers: h, body: JSON.stringify({ favs: list, settings: settings(), settingsAt: setAt() }) });
     if (r.status === 409) return { conflict: true };
     if (!r.ok) throw new Error('Sauvegarde ' + r.status);
     localStorage.setItem(VER_KEY, (await r.json()).version);
@@ -38,8 +47,11 @@ const Sync = (() => {
     const remote = await get();
     const merged = remote ? merge(remote.data.favs || [], favs()) : favs();
     save(FAV_KEY, merged);
-    if (!remote) await put(merged, null);
-    else if (merged.length !== (remote.data.favs || []).length) await put(merged, remote.ver);
+    const rAt = remote ? +remote.data.settingsAt || 0 : 0, hasR = !!(remote && remote.data.settings);
+    let pushIt = !remote || merged.length !== (remote.data.favs || []).length;
+    if (hasR && rAt > setAt()) { applySettings(remote.data.settings); rawSet.call(localStorage, AT_KEY, String(rAt)); if (Sync.onSettings) Sync.onSettings(); }
+    else if (!hasR || setAt() > rAt) pushIt = pushIt || Object.keys(settings()).length > 0;
+    if (pushIt) await put(merged, remote ? remote.ver : null);
     else localStorage.setItem(VER_KEY, remote.ver || '');
     return merged;
   }
@@ -48,6 +60,11 @@ const Sync = (() => {
     const r = await put(favs(), localStorage.getItem(VER_KEY) || null);
     if (r.conflict) await pull();
   }
+  // Tout changement d'un réglage synchronisé est daté puis envoyé (après une courte pause).
+  let st = 0;
+  const touch = () => { rawSet.call(localStorage, AT_KEY, String(Date.now())); clearTimeout(st); st = setTimeout(() => push().catch(() => {}), 1200); };
+  touch.p = cfg().proxy || '';
+  Storage.prototype.setItem = function (k, v) { rawSet.call(this, k, v); if (this === localStorage && (SET_KEYS.includes(k) || k === CFG_KEY)) { if (k === CFG_KEY) { const p = (() => { try { return JSON.parse(v).proxy || ''; } catch { return ''; } })(); if (p === (touch.p || '')) return; touch.p = p; } touch(); } };
   function setFavs(list) { save(FAV_KEY, list); push().catch(() => {}); }
   const fmt = v => (v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16).match(/.{1,4}/g) || []).join('-');
   // Crée une nouvelle sauvegarde à partir des favoris locaux.
@@ -67,5 +84,5 @@ const Sync = (() => {
     } catch (e) { setCfg(c); throw e; }
   }
   function leave() { const c = cfg(); delete c.code; setCfg(c); localStorage.removeItem(VER_KEY); }
-  return { favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
+  return { onSettings: null, favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
 })();
