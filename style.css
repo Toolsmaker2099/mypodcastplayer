@@ -37,3 +37,10 @@ nav .on{background:rgba(155,176,255,.16);color:#fff}
 [hidden]{display:none!important}
 .row{display:flex;gap:8px;align-items:center}.row>button{white-space:nowrap}
 label{display:block;margin-top:18px;color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+.item .m{display:block;margin-top:2px;font-size:12px}
+.d{margin:6px 0 0;color:var(--dim);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ep.open .d{-webkit-line-clamp:unset;display:block}.ep.open [data-more]{transform:rotate(180deg)}
+.item .t b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.hero{display:flex;gap:16px;align-items:center;margin:8px 0}.hero img{width:96px;height:96px;border-radius:20px;object-fit:cover;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.hero b{font-size:18px;display:block}.hero small{display:block;color:var(--dim)}
+.d.full{display:block;-webkit-line-clamp:unset}

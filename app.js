@@ -18,12 +18,21 @@ async function loadFeed(feedUrl) {
   if (!ch) throw new Error('Flux invalide');
   const txt = (n, s) => n.querySelector(s)?.textContent?.trim() || '';
   const img = doc.querySelector('channel > image > url')?.textContent || doc.getElementsByTagName('itunes:image')[0]?.getAttribute('href') || '';
+  const ns = (n, t) => n.getElementsByTagName(t)[0]?.textContent?.trim() || '';
+  const plain = h => { const d = new DOMParser().parseFromString(h || '', 'text/html'); return (d.body.textContent || '').replace(/\s+/g, ' ').trim(); };
+  const episodes = [...doc.querySelectorAll('item')].map(it => ({
+    title: txt(it, 'title'), date: txt(it, 'pubDate'),
+    desc: plain(ns(it, 'content:encoded') || txt(it, 'description') || ns(it, 'itunes:summary')).slice(0, 700),
+    dur: ns(it, 'itunes:duration'),
+    url: it.querySelector('enclosure')?.getAttribute('url') || '',
+  })).filter(e => e.url);
   const feed = {
     feedUrl, title: txt(ch, 'title'), image: img,
-    episodes: [...doc.querySelectorAll('item')].map(it => ({
-      title: txt(it, 'title'), date: txt(it, 'pubDate'),
-      url: it.querySelector('enclosure')?.getAttribute('url') || '',
-    })).filter(e => e.url),
+    author: ns(ch, 'itunes:author'),
+    desc: plain(txt(ch, 'description') || ns(ch, 'itunes:summary')).slice(0, 900),
+    genre: ch.getElementsByTagName('itunes:category')[0]?.getAttribute('text') || '',
+    count: episodes.length, last: episodes[0]?.date || '',
+    episodes,
   };
   feedCache.set(feedUrl, feed);
   return feed;
@@ -31,12 +40,22 @@ async function loadFeed(feedUrl) {
 
 // ---------- Vues ----------
 function setTitle(t, back) { $('#title').textContent = t; $('#back').hidden = !back; $('#back').onclick = back || null; }
+const fmtDate = d => { const t = Date.parse(d); return t ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; };
+function fmtDur(d) {
+  if (!d) return '';
+  const p = String(d).split(':').map(Number);
+  let sec = p.length > 1 ? p.reduce((a, x) => a * 60 + (x || 0), 0) : p[0];
+  if (!sec || isNaN(sec)) return '';
+  const h = Math.floor(sec / 3600), m = Math.round(sec % 3600 / 60);
+  return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
+}
+const meta = f => [f.genre, f.count ? f.count + ' épisodes' : '', f.last ? 'dernier : ' + fmtDate(f.last) : ''].filter(Boolean).join(' · ');
 function showItem(f, star) {
-  return `<div class="item" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small></div>${star ? `<button class="star" data-star>${Sync.favs().some(x => x.feedUrl === f.feedUrl) ? '★' : '☆'}</button>` : ''}</div>`;
+  return `<div class="item" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div>${star ? `<button class="star" data-star>${Sync.favs().some(x => x.feedUrl === f.feedUrl) ? '★' : '☆'}</button>` : ''}</div>`;
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
-  if (i >= 0) l.splice(i, 1); else l.push({ feedUrl: f.feedUrl, title: f.title, image: f.image, author: f.author });
+  if (i >= 0) l.splice(i, 1); else l.push({ feedUrl: f.feedUrl, title: f.title, image: f.image, author: f.author, genre: f.genre, count: f.count, last: f.last, desc: (f.desc || '').slice(0, 300) });
   Sync.setFavs(l);
 }
 function render() {
@@ -57,7 +76,7 @@ function renderSearch() {
     $('#res').innerHTML = '<p class="dim">Recherche…</p>';
     try {
       const r = await (await fetch(`https://itunes.apple.com/search?media=podcast&limit=25&country=fr&term=${encodeURIComponent(q)}`)).json();
-      const list = r.results.filter(x => x.feedUrl).map(x => ({ feedUrl: x.feedUrl, title: x.collectionName, image: x.artworkUrl100, author: x.artistName }));
+      const list = r.results.filter(x => x.feedUrl).map(x => ({ feedUrl: x.feedUrl, title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
       $('#res').innerHTML = list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat.</p>';
       $('#res').querySelectorAll('.item').forEach((el, i) => {
         el.onclick = ev => { if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; } else openFeed(list[i], () => render()); };
@@ -70,8 +89,15 @@ async function openFeed(f, back) {
   view.innerHTML = '<p class="dim">Chargement…</p>';
   try {
     const feed = feedCache.get(f.feedUrl) || await loadFeed(f.feedUrl);
-    view.innerHTML = feed.episodes.slice(0, 100).map((e, i) => `<div class="item" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small>${esc(e.date.slice(0, 16))}</small></div><button class="star">▶</button></div>`).join('');
-    view.querySelectorAll('.item').forEach(el => el.onclick = () => play(feed.episodes[el.dataset.i], feed.title, feed.image));
+    const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
+    view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
+      <p class="d full">${esc(feed.desc)}</p><p><button id="fav">${isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'}</button></p>` +
+      feed.episodes.slice(0, 100).map((e, i) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="star" data-more aria-label="Détails">⌄</button><button class="star">▶</button></div>`).join('');
+    $('#fav').onclick = () => { toggleFav(feed); $('#fav').textContent = isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'; };
+    view.querySelectorAll('.ep').forEach(el => el.onclick = ev => {
+      if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
+      play(feed.episodes[el.dataset.i], feed.title, feed.image);
+    });
   } catch (err) { view.innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
 }
 function renderSettings() {
@@ -139,7 +165,9 @@ function applyPendingReload() { if (pendingReload && audio.paused) location.relo
 async function refreshFavs() {
   try { await Sync.pull(); } catch {}
   feedCache.clear();
-  await Promise.allSettled(Sync.favs().map(f => loadFeed(f.feedUrl)));
+  const res = await Promise.allSettled(Sync.favs().map(f => loadFeed(f.feedUrl)));
+  const upd = Sync.favs().map((f, i) => { const v = res[i].value; return v ? { ...f, title: v.title, image: v.image || f.image, author: v.author, genre: v.genre, count: v.count, last: v.last, desc: v.desc.slice(0, 300) } : f; });
+  if (JSON.stringify(upd) !== JSON.stringify(Sync.favs())) localStorage.setItem('favs.v1', JSON.stringify(upd)); // maj locale des infos, sans resynchroniser
   if (tab === 'favs') renderFavs();
 }
 async function checkUpdates() {
