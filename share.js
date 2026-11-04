@@ -28,10 +28,22 @@ function openShared(f) { // tab « shared » : la mise à jour des favoris au d�
   openFeed(f, () => { tab = prev; render(); });
 }
 async function scanQR() {
-  const m = modal(`<h3>Scanner un QR code</h3><video id="scv" playsinline muted></video><p id="scm" class="dim sm">Vise le QR code d'un podcast partagé.</p><button data-close class="ghost">Annuler</button>`);
+  const m = modal(`<h3>Scanner un QR code</h3><video id="scv" playsinline muted></video><p id="scm" class="dim sm">Vise le QR code d'un podcast partagé.</p><label class="ghost" id="scpic">📷 Prendre une photo du QR code<input type="file" id="scfile" accept="image/*" capture="environment" hidden></label><button data-close class="ghost">Annuler</button>`);
   const v = m.querySelector('#scv'), msg = t => { m.querySelector('#scm').textContent = t; }; let stream, stop = false;
+  m.querySelector('#scfile').onchange = async e => { // secours : photo du QR code (aucun accès caméra en direct nécessaire)
+    const file = e.target.files[0]; if (!file) return; msg('Lecture…');
+    try {
+      if (typeof jsQR !== 'function') await shareLoad('vendor/jsQR.js');
+      const img = new Image(); img.src = URL.createObjectURL(file); await img.decode();
+      const s = Math.min(1, 1200 / Math.max(img.width, img.height)), cv = document.createElement('canvas'); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s);
+      const g = cv.getContext('2d'); g.drawImage(img, 0, 0, cv.width, cv.height);
+      const r = jsQR(g.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height), f = r && feedFromText(r.data);
+      if (f) { m.close(); openShared(f); } else msg('Aucun QR code de podcast trouvé dans cette photo.');
+    } catch { msg('Photo illisible.'); }
+  };
   m.onclose = () => { stop = true; if (stream) stream.getTracks().forEach(t => t.stop()); };
   try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('nocam');
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
     v.srcObject = stream; await v.play();
     let det = null; if ('BarcodeDetector' in window) { try { det = new BarcodeDetector({ formats: ['qr_code'] }); } catch {} }
@@ -48,7 +60,7 @@ async function scanQR() {
       setTimeout(tick, 200);
     };
     tick();
-  } catch (e) { msg(e && e.name === 'NotAllowedError' ? 'Accès à la caméra refusé : autorise-la dans les réglages du navigateur.' : 'Caméra indisponible : scanne plutôt le QR code avec l\'appareil photo du téléphone.'); }
+  } catch (e) { msg(e && e.name === 'NotAllowedError' ? 'Accès à la caméra refusé : autorise-la dans les réglages du navigateur.' : 'Caméra en direct indisponible : prends une photo du QR code avec le bouton ci-dessous.'); }
 }
 // Lien de partage ouvert : on affiche le podcast, prêt à être ajouté aux favoris.
 // Mémorisé quelques secondes pour survivre à un rechargement dû à une mise à jour de l'app.
