@@ -311,3 +311,30 @@ nav .bdg{right:calc(50% - 22px);top:3px}
 .favsegw #favseg button{flex:1 1 0}
 .favsegw #favseg button{flex:1 1 auto;padding:9px 4px;font-size:12.5px;text-overflow:clip}
 .xrow{gap:8px}.xrow>img{width:48px;height:48px;flex:none}.xrow .ibtn{width:34px;height:34px;min-width:0;padding:0;font-size:12px;flex:none}.xrow .t{flex:1 1 0}
+/* ---------- Page d'un podcast (refonte) ---------- */
+.hero{gap:16px;margin:6px 0 14px}.hero b{font-size:19px;line-height:1.25}.hero small{margin-top:3px;font-size:13px}
+.pacts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 14px}
+.pact{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:13px 6px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--fg);font-size:12.5px;font-weight:600}
+.pact svg{width:21px;height:21px}.pact.on{color:#ff6b9a;border-color:rgba(255,107,154,.55);background:rgba(255,107,154,.1)}.pact.on svg path{fill:currentColor}
+.sec{margin:0 0 10px;border:1px solid var(--line);border-radius:16px;background:var(--card);overflow:hidden}
+.sec>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:15px 16px;font-weight:650;font-size:15px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary::after{content:"";margin-left:auto;flex:none;width:8px;height:8px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(45deg);transition:transform .2s;margin-top:-3px}
+.sec[open]>summary::after{transform:rotate(225deg);margin-top:3px}
+.sec .sum{margin-left:auto;font-weight:500;font-size:12.5px;color:var(--acc);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}.sec .sum:empty{display:none}
+.sec>.d{padding:0 16px 16px;margin:0}
+.rows{padding:0 16px 6px}.rw{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-top:1px solid var(--line)}.rw[hidden]{display:none}
+.rl{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}.rl span{font-size:15px;color:var(--fg)}.rl small{font-size:12px;color:var(--dim)}
+.rw select,.rw .ddb{flex:none;width:150px;min-width:0;padding:10px 12px;font-size:14px;border-radius:12px}
+.unit{display:inline-flex;align-items:center;gap:6px;color:var(--dim);font-size:14px;flex:none}.unit input{width:64px;margin:0;padding:9px 8px;text-align:center;font-size:15px;border-radius:12px;height:auto}
+button.sw{flex:none;position:relative;width:50px;height:30px;padding:0;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.1)}
+button.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#98a0c4;transition:left .2s,background .2s}
+button.sw.on{background:linear-gradient(135deg,#6f86ff,#b072ff);border-color:transparent}button.sw.on::after{left:23px;background:#fff}
+.eph{display:flex;align-items:baseline;justify-content:space-between;margin:20px 2px 4px}.eph h3{margin:0;font-size:17px}.eph .dim{font-size:12.5px}
+/* carte d'épisode : texte pleine largeur, actions en dessous */
+.item.ep{flex-wrap:wrap;gap:10px;padding:14px;align-items:flex-start}
+.item.ep>.t{flex:1 1 0;min-width:55%}.item.ep .t b{-webkit-line-clamp:3;font-size:15.5px;line-height:1.3}
+.item.ep .t .m{margin-top:5px;font-size:12.5px}
+.epbar{flex:1 1 100%;display:flex;align-items:center;gap:8px;padding-top:2px}
+.epbar .ibtn{width:42px;height:42px;border-radius:12px}.ibtn.playb.wide{width:auto;margin-left:auto;padding:0 18px;display:inline-flex;gap:7px;font-weight:700;font-size:14.5px}.ibtn.playb.wide svg{margin:0}
+.item.ep>.epacts{flex:1 1 100%;margin:0}.ep.selmode .epbar{display:none}

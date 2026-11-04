@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.87';
+const APP_VERSION = '2026-11-04.88';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -432,11 +432,31 @@ async function openFeed(f, back) {
     if (!f.title) setTitle(feed.title, back || (() => render()));
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     const seenAt = seenMap()[feed.feedUrl]; if (isFav()) { markSeen(feed); refreshNewBadge(); }
+    const rw = (label, ctl, sub = '', id = '') => `<div class="rw"${id ? ` id="${id}"` : ''}><div class="rl"><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</div>${ctl}</div>`;
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
-      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="dlauto">Téléchargement automatique</label><select id="dlauto"><option value="0">Non</option><option value="new">Nouveaux épisodes</option>${[1, 2, 3, 5, 10].map(n => `<option value="${n}">${n} dernier${n > 1 ? 's' : ''}</option>`).join('')}</select></div><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button> <button id="lists" class="favpill">${IC.list}<span>Listes</span></button></p>` +
-      `<div class="filters fgrid"><select id="ord"><option value="desc">Récents</option><option value="asc">Anciens</option></select>
-        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select></div><div class="tglrow"><button id="chain" type="button" class="tgl"></button><button id="track" type="button" class="tgl"></button><button id="selbtn" type="button" class="tgl" hidden></button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="pl">+ Playlist</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
-    const tgl = (id, ic, label, on) => { const b = $('#' + id); b.innerHTML = labeled(ic, label); b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', !!on); };
+      <div class="pacts"><button id="fav" type="button" class="pact${isFav() ? ' on' : ''}">${IC.star}<span>Coup de cœur</span></button><button id="lists" type="button" class="pact">${IC.list}<span>Listes</span></button><button id="share" type="button" class="pact">${IC.share}<span>Partager</span></button></div>
+      <details class="sec"><summary>À propos</summary><p class="d full">${esc(feed.desc) || 'Pas de description.'}</p></details>
+      <details class="sec"><summary>Réglages de ce podcast</summary><div class="rows">` +
+        rw('Suivi de lecture', '<button id="track" type="button" class="sw" role="switch"></button>', 'Reprise, lu / non lu') +
+        rw('Enchaîner les épisodes', '<button id="chain" type="button" class="sw" role="switch"></button>', 'Lit le suivant automatiquement') +
+        rw('Vitesse de lecture', `<select id="rate">${[0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2].map(v => `<option value="${v}">${v}×</option>`).join('')}</select>`) +
+        rw('Réduire les silences', '<button id="silsw" type="button" class="sw" role="switch"></button>', 'Accélère les blancs') +
+        rw('Sauter le début', `<span class="unit"><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"> s</span>`, 'Générique d\'intro') +
+        rw('Sauter la fin', `<span class="unit"><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"> s</span>`, 'Générique de fin') +
+        rw('Téléchargement auto', `<select id="dlauto"><option value="0">Non</option><option value="new">Nouveaux épisodes</option>${[1, 2, 3, 5, 10].map(n => `<option value="${n}">${n} dernier${n > 1 ? 's' : ''}</option>`).join('')}</select>`, 'Écoute hors ligne') +
+      `</div></details>
+      <details class="sec"><summary>Filtrer et trier<span id="filsum" class="sum"></span></summary><div class="rows">` +
+        rw('Trier', '<select id="ord"><option value="desc">Récents</option><option value="asc">Anciens</option></select>') +
+        rw('Durée minimale', `<select id="mind"><option value="0">Toutes</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select>`) +
+        rw('Afficher', '<select id="rd"><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select>', '', 'rdrow') +
+        rw('Sélection multiple', '<button id="selbtn" type="button" class="sw" role="switch"></button>', 'Marquer lu, playlist…', 'selrow') +
+      `</div></details>
+      <div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="pl">+ Playlist</button><button type="button" data-a="done">Terminer</button></div>
+      <div class="eph"><h3>Épisodes</h3><span id="epcount" class="dim"></span></div><div id="eps"></div>`;
+    { const sv = xget('rate.v1', {})[feed.feedUrl] || 1; $('#rate').value = String(sv); $('#rate').onchange = () => { const m = xget('rate.v1', {}), v = +$('#rate').value; if (v === 1) delete m[feed.feedUrl]; else m[feed.feedUrl] = v; xset('rate.v1', m); if (feed.feedUrl === curFeedUrl) applyRate(); };
+      const showSil = () => { const on = silOn(feed.feedUrl); $('#silsw').classList.toggle('on', on); $('#silsw').setAttribute('aria-checked', on); }; showSil();
+      $('#silsw').onclick = () => { const m = xget('silence.v1', {}); if (m[feed.feedUrl]) delete m[feed.feedUrl]; else m[feed.feedUrl] = 1; xset('silence.v1', m); showSil(); if (feed.feedUrl === curFeedUrl) applyRate(); }; }
+    const tgl = (id, ic, label, on) => { const b = $('#' + id); if (b.classList.contains('sw')) { b.classList.toggle('on', !!on); b.setAttribute('aria-checked', !!on); return; } b.innerHTML = labeled(ic, label); b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', !!on); };
     const showChain = () => tgl('chain', IC.chain, 'Enchaîner', chain);
     $('#chain').onclick = () => { chain = !chain; try { localStorage.setItem('chain', chain ? '1' : '0'); } catch {} showChain(); };
     showChain();
@@ -451,7 +471,7 @@ async function openFeed(f, back) {
       else { if (!sel.size) return; const n = sel.size; setProgMany(feed.feedUrl, [...sel].map(i => feed.episodes[i]), act === 'read' ? { r: 1, t: 0 } : { r: 0, t: 0 }); sel.clear(); toast(n + (n > 1 ? ' épisodes marqués ' : ' épisode marqué ') + (act === 'read' ? 'lu' : 'non lu') + (n > 1 ? 's' : '')); }
       showSel(); drawEps();
     };
-    const showTrack = () => { const on = trackOn(feed.feedUrl); tgl('track', IC.track, 'Suivi de lecture', on); tgl('selbtn', IC.select, 'Sélection', selMode); $('#rd').hidden = !on; $('#selbtn').hidden = !on; if (!on) { selMode = false; sel.clear(); showSel(); } };
+    const showTrack = () => { const on = trackOn(feed.feedUrl); tgl('track', IC.track, 'Suivi de lecture', on); tgl('selbtn', IC.select, 'Sélection', selMode); $('#rdrow').hidden = !on; $('#selrow').hidden = !on; if (!on) { selMode = false; sel.clear(); showSel(); } };
     $('#track').onclick = () => { const m = numMap('track.v1'); if (m[feed.feedUrl]) delete m[feed.feedUrl]; else m[feed.feedUrl] = 1; try { localStorage.setItem('track.v1', JSON.stringify(m)); } catch {} showTrack(); drawEps(); };
     const allPrefs = () => { try { return JSON.parse(localStorage.getItem('epprefs.v2')) || {}; } catch { return {}; } };
     const prefs = () => ({ order: 'desc', min: 0, read: 'all', ...allPrefs()[feed.feedUrl] }); // réglages propres à ce podcast
@@ -466,8 +486,9 @@ async function openFeed(f, back) {
       if (tr && p.read === 'unread') list = list.filter(x => !pg(x.e).r);
       if (tr && p.read === 'read') list = list.filter(x => pg(x.e).r);
       list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
+      { const f = []; if (p.order === 'asc') f.push('Anciens'); if (p.min) f.push('≥ ' + p.min + ' min'); if (tr && p.read !== 'all') f.push(p.read === 'unread' ? 'Non lus' : 'Lus'); $('#filsum').textContent = f.join(' · '); $('#epcount').textContent = list.length + ' / ' + feed.episodes.length; }
       curList = list.slice(0, 150).map(x => x.e); curListIdx = list.slice(0, 150).map(x => x.i);
-      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr ? (pg(e).r ? ' isread' : ' unr') : ''}${selMode ? ' selmode' : ''}${opened.has(String(i)) ? ' open' : ''}${selMode && sel.has(i) ? ' sel' : ''}" data-i="${i}">${selMode ? '<span class="chk" aria-hidden="true">✓</span>' : ''}<div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${seenAt != null && epTime(e) > seenAt ? '<span class="newpill">Nouveau</span>' : ''}${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<span class="rdpill">✓ Lu</span>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}<div class="epacts"><button type="button" class="abtn2" data-q>☰＋ À la suite</button><button type="button" class="abtn2" data-info>Chapitres et notes</button></div></div>${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn dlb" data-dl data-u="${esc(e.url)}" aria-label="Télécharger pour l'écouter hors ligne">${dlIcon(e.url)}</button><button class="ibtn" data-pladd aria-label="Ajouter à une playlist">＋</button><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
+      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr ? (pg(e).r ? ' isread' : ' unr') : ''}${selMode ? ' selmode' : ''}${opened.has(String(i)) ? ' open' : ''}${selMode && sel.has(i) ? ' sel' : ''}" data-i="${i}">${selMode ? '<span class="chk" aria-hidden="true">✓</span>' : ''}<div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${seenAt != null && epTime(e) > seenAt ? '<span class="newpill">Nouveau</span>' : ''}${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<span class="rdpill">✓ Lu</span>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><div class="epbar">${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn dlb" data-dl data-u="${esc(e.url)}" aria-label="Télécharger pour l'écouter hors ligne">${dlIcon(e.url)}</button><button class="ibtn" data-pladd aria-label="Ajouter à une playlist">＋</button><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb wide" aria-label="Lire">${IC.play}<span>Lire</span></button></div><div class="epacts"><button type="button" class="abtn2" data-q>☰＋ À la suite</button><button type="button" class="abtn2" data-info>Chapitres et notes</button></div></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
     $('#ord').onchange = $('#mind').onchange = $('#rd').onchange = drawEps; showTrack(); drawEps();
     epRedraw = () => { if ($('#eps') && $('#ord') && $('#ord').isConnected) { try { drawEps(); } catch {} } };
@@ -481,8 +502,8 @@ async function openFeed(f, back) {
     const av = xget('dl.auto.v1', {})[feed.feedUrl]; $('#dlauto').value = av && av.new ? 'new' : String(av || 0);
     $('#dlauto').onchange = () => { const m = xget('dl.auto.v1', {}), v = $('#dlauto').value, n = v === 'new' ? 1 : +v; if (v === 'new') m[feed.feedUrl] = { new: Date.now() }; else if (n) m[feed.feedUrl] = n; else delete m[feed.feedUrl]; xset('dl.auto.v1', m); if (n) { toast('Téléchargement automatique activé'); dlAutoRun(); } };
     $('#share').onclick = () => withShare(() => shareFeed(feed));
-    $('#lists').onclick = () => listsSheet(feed, () => { $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'; }, $('#lists'));
-    $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'; };
+    $('#lists').onclick = () => listsSheet(feed, () => { $('#fav').classList.toggle('on', isFav());  }, $('#lists'));
+    $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav());  };
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
