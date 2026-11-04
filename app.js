@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.88';
+const APP_VERSION = '2026-11-04.89';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -982,7 +982,7 @@ $('#sleep').innerHTML = labeled(IC.timer, 'Minuteur');
     menu = { el, btn, key }; el.querySelector('.sel') && el.querySelector('.sel').scrollIntoView({ block: 'center' });
   }
   function enhance(sel) {
-    if (sel.dataset.dd || !mq.matches) return; sel.dataset.dd = '1';
+    if (sel.dataset.dd) return; sel.dataset.dd = '1';
     const b = document.createElement('button'); b.type = 'button'; b.className = 'ddb'; if (sel.id) b.id = sel.id + '-dd';
     const sync = () => { const o = sel.options[sel.selectedIndex]; b.innerHTML = `<span>${esc(o ? o.textContent : '')}</span>${IC.chev}`; b.hidden = sel.hidden; b.disabled = sel.disabled; };
     Object.defineProperty(sel, 'value', { get() { return vd.get.call(sel); }, set(v) { vd.set.call(sel, v); sync(); }, configurable: true });
