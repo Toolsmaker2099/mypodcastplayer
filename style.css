@@ -340,3 +340,14 @@ button.sw.on{background:linear-gradient(135deg,#6f86ff,#b072ff);border-color:tra
 .item.ep>.epacts{flex:1 1 100%;margin:0}.ep.selmode .epbar{display:none}
 @media(pointer:coarse){.ddi{padding:14px 14px;font-size:16px}.ddm{max-width:calc(100vw - 16px)}}
 .morebtn{display:block;width:100%;margin:14px 0 6px;padding:14px;border-radius:14px;font-weight:600}.morebtn .dim{font-weight:400;font-size:12.5px;margin-left:4px}
+/* menus d'ajout aux listes / playlists : compacts, sans défilement */
+.pop .phead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 10px}
+.pop .phead span{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+.pdone{padding:7px 14px;border-radius:10px;font-size:13px;font-weight:700;color:#0a0c18;background:linear-gradient(135deg,var(--acc),var(--acc2));border:0}
+.pdone[aria-label]{padding:6px 10px;color:var(--dim);background:rgba(255,255,255,.08)}
+.pchips{display:flex;flex-wrap:wrap;gap:8px;padding:0 2px 4px}
+.pchip{padding:9px 13px;border-radius:12px;font-size:14px;color:var(--fg);background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.pchip small{color:var(--dim);margin-left:4px}
+.pchip.on{color:#fff;background:linear-gradient(135deg,rgba(111,134,255,.42),rgba(176,114,255,.34));border-color:rgba(165,185,255,.7)}
+.pchip.add{color:var(--acc);border-style:dashed;background:none}
+.pnewi{display:flex;gap:8px;width:100%}.pnewi input{flex:1;min-width:0;margin:0;padding:9px 12px;border-radius:12px}.pok{padding:9px 14px;border-radius:12px;font-weight:700;color:#0a0c18;background:linear-gradient(135deg,var(--acc),var(--acc2));border:0}
