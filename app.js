@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.77';
+const APP_VERSION = '2026-11-04.78';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -180,7 +180,8 @@ function popover(anchor, html, onclose) {
   document.addEventListener('pointerdown', out, true); document.addEventListener('keydown', key, true); addEventListener('resize', closePop); addEventListener('scroll', scroll, true);
   popState = { el, anchor, out, key, scroll, onclose }; el.place = place; place(); return el;
 }
-const newRow = ph => `<form class="row pnew"><input maxlength="40" placeholder="${ph}" autocomplete="off"><button class="abtn">OK</button></form>`;
+const newRow = ph => `<div class="pnlab">Ou créer ${ph.includes('playlist') ? 'une playlist' : 'une liste'}</div><form class="row pnew"><input maxlength="40" placeholder="Nom" autocomplete="off"><button class="abtn" disabled>+ Créer</button></form>`;
+const newRowWire = el => { const i = el.querySelector('.pnew input'), b = el.querySelector('.pnew .abtn'); i.addEventListener('input', () => { b.disabled = !i.value.trim(); }); };
 function playlistPicker(snaps, anchor) { // ajoute des épisodes à une playlist (ou en crée une)
   const add = (p, all) => { let n = 0; snaps.forEach(s => { if (!p.items.some(x => x.url === s.url)) { p.items.push(s); n++; } }); savePl(all); closePop(); toast(n ? `${n} épisode${n > 1 ? 's ajoutés' : ' ajouté'} à « ${p.name} »` : 'Déjà dans « ' + p.name + ' »'); };
   const el = popover(anchor, `<div class="phead">Ajouter à une playlist</div><div class="lbody"></div>${newRow('Nouvelle playlist')}`); if (!el) return;
@@ -188,7 +189,7 @@ function playlistPicker(snaps, anchor) { // ajoute des épisodes à une playlist
   el.querySelector('.lbody').innerHTML = l.map(p => `<button type="button" class="prow" data-id="${p.id}"><span>${esc(p.name)}</span><small class="dim">${p.items.length}</small></button>`).join('') || '<p class="dim sm" style="padding:6px 8px;margin:0">Aucune playlist : crées-en une ci-dessous.</p>';
   el.querySelectorAll('.prow').forEach(b => b.onclick = () => { const all = plData(); add(all.find(x => x.id === b.dataset.id), all); });
   el.querySelector('.pnew').onsubmit = e => { e.preventDefault(); const v = el.querySelector('.pnew input').value.trim(); if (!v) return; const all = plData(), p = { id: newId(), name: v, items: [] }; all.push(p); add(p, all); };
-  el.place(); setTimeout(() => el.querySelector('.pnew input').focus({ preventScroll: true }), 0);
+  newRowWire(el); el.place();
 }
 function playPlaylist(p, start = 0) {
   if (!p.items.length) return;
@@ -236,8 +237,8 @@ function listsSheet(feed, onDone, anchor) {
     el.querySelectorAll('input[data-id]').forEach(c => c.onchange = () => setMember(c.dataset.id, c.checked));
     el.place();
   };
-  el.querySelector('.pnew').onsubmit = e => { e.preventDefault(); const inp = el.querySelector('.pnew input'), v = inp.value.trim(); if (!v) return; const dd = listsData(), id = newId(); dd.lists.push({ id, name: v }); saveLists(dd); setMember(id, true); inp.value = ''; draw(); };
-  draw(); setTimeout(() => el.querySelector('.pnew input').focus({ preventScroll: true }), 0);
+  el.querySelector('.pnew').onsubmit = e => { e.preventDefault(); const inp = el.querySelector('.pnew input'), v = inp.value.trim(); if (!v) return; const dd = listsData(), id = newId(); dd.lists.push({ id, name: v }); saveLists(dd); setMember(id, true); inp.value = ''; el.querySelector('.pnew .abtn').disabled = true; draw(); };
+  newRowWire(el); draw();
 }
 // ---------- Podcast Index (clé + secret saisis dans Réglages ; synchronisés avec la sauvegarde, au choix de l'utilisateur) ----------
 const piReady = () => true;
