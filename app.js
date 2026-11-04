@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.41';
+const APP_VERSION = '2026-11-04.42';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -155,15 +155,18 @@ const PRODUCERS = [
 let searchProd = '', searchQ = '', filtersOpen = false;
 const seg = (id, opts, val) => `<div class="seg" id="${id}">${opts.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
 const SVG_SEARCH = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+const APPLE_GENRES = [['', 'Toutes les catégories'], ['1301', 'Arts'], ['1303', 'Humour'], ['1304', 'Éducation'], ['1305', 'Enfants et famille'], ['1321', 'Économie'], ['1483', 'Fiction'], ['1511', 'Gouvernement'], ['1512', 'Santé et forme'], ['1487', 'Histoire'], ['1502', 'Loisirs'], ['1310', 'Musique'], ['1489', 'Actualités'], ['1314', 'Religion et spiritualité'], ['1533', 'Sciences'], ['1324', 'Société et culture'], ['1545', 'Sport'], ['1318', 'Technologie'], ['1488', 'Faits divers'], ['1309', 'Télévision et cinéma']];
+const appleGenre = () => localStorage.getItem('apple.genre') || '';
 const PI_MODES = [['search', 'Mots-clés'], ['title', 'Titre'], ['trending', 'Tendances'], ['recent', 'Mises à jour'], ['new', 'Nouveaux']];
-const PI_HINT = { search: 'Rechercher…', title: 'Titre du podcast…', trending: 'Filtrer (facultatif)…', recent: 'Filtrer (facultatif)…', new: 'Filtrer (facultatif)…' };
+const PI_HINT = { search: 'Mot-clé (facultatif)…', title: 'Titre du podcast…', trending: 'Filtrer (facultatif)…', recent: 'Filtrer (facultatif)…', new: 'Filtrer (facultatif)…' };
 function renderSearch() {
   if (!searchSrc) searchSrc = piReady() ? 'pi' : 'apple';
   if (searchSrc === 'pi' && !piReady()) searchSrc = 'apple';
   const pi = searchSrc === 'pi', p = piPrefs();
   const active = pi ? [p.lang !== 'fr', !!p.cat, p.sort !== 'rel', p.clean, p.full, !!searchProd].filter(Boolean).length : 0;
   view.innerHTML = `${seg('srcseg', [['apple', 'Apple Podcasts'], ['pi', piReady() ? 'Podcast Index' : 'Podcast Index 🔒']], searchSrc)}
-    <form id="sf" class="searchbar">${SVG_SEARCH}<input type="search" id="q" placeholder="${pi ? PI_HINT[p.mode] : 'Rechercher un podcast…'}" value="${esc(searchQ)}" enterkeyhint="search"><button>Chercher</button></form>
+    <form id="sf" class="searchbar">${SVG_SEARCH}<input type="search" id="q" placeholder="${pi ? PI_HINT[p.mode] : 'Mot-clé (facultatif)…'}" value="${esc(searchQ)}" enterkeyhint="search"><button>Chercher</button></form>
+    ${pi ? '' : `<div class="frow agrow"><span>Catégorie</span><select id="agenre">${APPLE_GENRES.map(([v, l]) => `<option value="${v}"${v === appleGenre() ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`}
     ${pi ? `<div class="scrollx">${seg('modeseg', PI_MODES, p.mode)}</div>
     <button id="ftoggle" type="button" class="ghost">⚙ Filtres${active ? ` <span class="badge">${active}</span>` : ''}<span class="car">${filtersOpen ? '⌃' : '⌄'}</span></button>
     <div id="fpanel" class="panel" ${filtersOpen ? '' : 'hidden'}>
@@ -185,34 +188,41 @@ function renderSearch() {
     const q = $('#q').value.trim(); searchQ = q;
     const p = piPrefs(), prod = pi ? PRODUCERS.find(x => x[0] === searchProd) : null;
     const browse = pi && ['trending', 'recent', 'new'].includes(p.mode);
-    if (!q && !prod && !browse) { $('#res').innerHTML = ''; return; }
     $('#res').innerHTML = '<p class="dim">Recherche…</p>';
     try {
       if (pi) {
-        let feeds;
+        let feeds, srvFiltered = false;
         const since = days => `&since=${Math.floor(Date.now() / 1000) - days * 86400}`, lg = p.lang ? '&lang=' + p.lang : '', ct = p.cat ? '&cat=' + encodeURIComponent(p.cat) : '';
         if (p.mode === 'trending') feeds = await piGet(`podcasts/trending?max=100${since(14)}${lg}${ct}`);
         else if (p.mode === 'recent') feeds = await piGet(`recent/feeds?max=100${lg}${ct}`);
         else if (p.mode === 'new') feeds = await piGet(`recent/newfeeds?max=100${since(30)}`);
+        else if (!q && !prod) { srvFiltered = true; feeds = await piGet(`podcasts/trending?max=1000${since(365)}${lg}${ct}`); }
         else {
           const term = encodeURIComponent(q || (prod && prod[0]) || '');
           feeds = await piGet(p.mode === 'title' ? `search/bytitle?max=100&q=${term}${p.clean ? '&clean' : ''}` : `search/byterm?max=100&q=${term}${p.clean ? '&clean' : ''}${p.full ? '&fulltext' : ''}`);
         }
-        feeds = feeds.filter(x => x.url && !x.dead);
-        if (p.lang && ['search', 'title', 'new'].includes(p.mode)) feeds = feeds.filter(x => (x.language || '').toLowerCase().startsWith(p.lang));
-        if (p.cat && ['search', 'title', 'new'].includes(p.mode)) feeds = feeds.filter(x => Object.values(x.categories || {}).some(c => c.toLowerCase() === p.cat.toLowerCase()));
+        feeds = feeds.filter(x => x.url && !x.dead && !(p.clean && x.explicit));
+        if (!srvFiltered && p.lang && ['search', 'title', 'new'].includes(p.mode)) feeds = feeds.filter(x => (x.language || '').toLowerCase().startsWith(p.lang));
+        if (!srvFiltered && p.cat && ['search', 'title', 'new'].includes(p.mode)) feeds = feeds.filter(x => Object.values(x.categories || {}).some(c => c.toLowerCase() === p.cat.toLowerCase()));
         if (prod) feeds = feeds.filter(x => prod[1].test(x.author || '') || prod[1].test(x.ownerName || '') || prod[1].test(x.title || ''));
         if (q && browse) { const ql = q.toLowerCase(); feeds = feeds.filter(x => ((x.title || '') + ' ' + (x.author || '') + ' ' + (x.description || '')).toLowerCase().includes(ql)); }
         const lastOf = x => x.newestItemPubdate || x.newestItemPublishTime || 0;
         if (p.sort === 'new') feeds.sort((x, y) => lastOf(y) - lastOf(x));
         else if (p.sort === 'eps') feeds.sort((x, y) => (y.episodeCount || 0) - (x.episodeCount || 0));
         else if (p.sort === 'az') feeds.sort((x, y) => (x.title || '').localeCompare(y.title || '', 'fr'));
-        const list = feeds.slice(0, 60).map(piMap);
+        const list = feeds.slice(0, 150).map(piMap);
         $('#res').innerHTML = `<p class="count dim">${list.length} résultat${list.length > 1 ? 's' : ''}</p>` + (list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat avec ces filtres.</p>');
         bind(list); return;
       }
-      const r = await (await fetch(`https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`)).json();
-      const list = r.results.slice(0, 50).map(x => ({ feedUrl: x.feedUrl || '', title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
+      let results;
+      if (q) results = (await (await fetch(`https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`)).json()).results;
+      else { // sans mot : classement Apple (par catégorie), puis recherche des flux
+        const g = appleGenre(), top = await (await fetch(`https://itunes.apple.com/fr/rss/toppodcasts/limit=100${g ? '/genre=' + g : ''}/json`)).json();
+        const ids = (top.feed.entry || []).map(e => e.id.attributes['im:id']);
+        const by = new Map(); (await (await fetch(`https://itunes.apple.com/lookup?id=${ids.join(',')}&country=fr`)).json()).results.forEach(x => by.set(String(x.collectionId), x));
+        results = ids.map(i => by.get(i)).filter(Boolean);
+      }
+      const list = results.slice(0, 100).map(x => ({ feedUrl: x.feedUrl || '', title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
       const nofeed = list.filter(f => !f.feedUrl).length;
       $('#res').innerHTML = (nofeed ? `<p class="dim">${nofeed} résultat${nofeed > 1 ? 's' : ''} sans flux public dans l'annuaire Apple (grisé${nofeed > 1 ? 's' : ''}) : impossible de les lire ici.</p>` : '') + (list.map(f => showItem(f, !!f.feedUrl)).join('') || '<p class="dim">Aucun résultat.</p>');
       bind(list);
@@ -226,6 +236,7 @@ function renderSearch() {
     searchSrc = v; try { localStorage.setItem('src', v); } catch {}
     refresh();
   });
+  if (!pi) $('#agenre').onchange = e => { try { localStorage.setItem('apple.genre', e.target.value); } catch {} run(); };
   $('#sf').onsubmit = e => { e.preventDefault(); run(); };
   if (pi) {
     bindSeg('modeseg', v => { savePrefs({ mode: v }); refresh(); });
@@ -238,7 +249,7 @@ function renderSearch() {
     view.querySelectorAll('.chip[data-p]').forEach(b => b.onclick = () => { searchProd = searchProd === b.dataset.p ? '' : b.dataset.p; refresh(); });
     piCategories().then(cs => { $('#picat').innerHTML = '<option value="">Toutes les catégories</option>' + cs.map(c => ({ c, l: catFr(c) })).sort((x, y) => x.l.localeCompare(y.l, 'fr')).map(({ c, l }) => `<option value="${esc(c)}">${esc(l)}</option>`).join(''); $('#picat').value = p.cat; }).catch(() => {});
   }
-  if (searchQ || (pi && (searchProd || ['trending', 'recent', 'new'].includes(p.mode)))) run();
+  run();
 }
 async function openFeed(f, back) {
   setTitle(f.title, back || (() => render()));

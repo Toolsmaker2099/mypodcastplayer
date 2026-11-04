@@ -9,7 +9,7 @@ const Sync = (() => {
   const setCfg = c => save(CFG_KEY, c);
   const favs = () => load(FAV_KEY, []);
   // Réglages synchronisés (la clé/secret Podcast Index et l'état du lecteur propre à l'appareil n'en font pas partie).
-  const SET_KEYS = ['epprefs.v2', 'skip.v1', 'skipend.v1', 'chain', 'night', 'pi.prefs', 'src'], AT_KEY = 'set.at.v1';
+  const SET_KEYS = ['epprefs.v2', 'skip.v1', 'skipend.v1', 'chain', 'night', 'pi.prefs', 'src', 'apple.genre'], AT_KEY = 'set.at.v1';
   const rawSet = Storage.prototype.setItem;
   const settings = () => { const s = {}; SET_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) s[k] = v; }); const p = cfg().proxy; if (p) s.proxy = p; return s; };
   const setAt = () => +localStorage.getItem(AT_KEY) || 0;
