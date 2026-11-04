@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.68';
+const APP_VERSION = '2026-11-04.69';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -17,6 +17,7 @@ IC.chain = svg('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l
 IC.track = svg('<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.2 9.5"/>', 17);
 IC.select = svg('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12 3 3 5-6"/>', 17);
 IC.link = svg('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>', 20);
+IC.list = svg('<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>', 18);
 const labeled = (ic, t) => `${ic}<span>${t}</span>`;
 const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Favori" aria-pressed="${on}">${IC.star}</button>`;
 const setStar = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
@@ -87,7 +88,7 @@ function showItem(f, star) {
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
-  if (i >= 0) l.splice(i, 1); else l.push({ feedUrl: f.feedUrl, title: f.title, image: f.image, author: f.author, genre: f.genre, count: f.count, last: f.last, desc: (f.desc || '').slice(0, 300) });
+  if (i >= 0) { l.splice(i, 1); const d = listsData(); if (d.members[f.feedUrl]) { delete d.members[f.feedUrl]; saveLists(d); } } else l.push({ feedUrl: f.feedUrl, title: f.title, image: f.image, author: f.author, genre: f.genre, count: f.count, last: f.last, desc: (f.desc || '').slice(0, 300) });
   Sync.setFavs(l);
 }
 function render() {
@@ -95,17 +96,65 @@ function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   ({ favs: renderFavs, search: renderSearch, add: renderAdd, settings: renderSettings })[tab]();
 }
+// ---------- Listes de favoris : « Tous les favoris » (principale, toujours là) + listes personnalisées ----------
+const listsData = () => { try { const d = JSON.parse(localStorage.getItem('lists.v1')); return { lists: (d && d.lists) || [], members: (d && d.members) || {} }; } catch { return { lists: [], members: {} }; } };
+const saveLists = d => { try { localStorage.setItem('lists.v1', JSON.stringify(d)); } catch {} };
+const newId = () => Math.random().toString(36).slice(2, 8);
+function askName(title, value = '') {
+  return new Promise(ok => withShare(() => {
+    const m = modal(`<h3>${esc(title)}</h3><form id="nf" class="row"><input id="nn" maxlength="40" value="${esc(value)}" placeholder="Nom de la liste" autocomplete="off"><button class="abtn">OK</button></form><button data-close class="ghost">Annuler</button>`);
+    let done = false;
+    m.querySelector('#nf').onsubmit = e => { e.preventDefault(); const v = m.querySelector('#nn').value.trim(); if (v) { done = true; m.close(); ok(v); } };
+    m.onclose = () => { if (!done) ok(null); };
+    setTimeout(() => { const n = m.querySelector('#nn'); n.focus(); n.select(); }, 60);
+  }));
+}
 function renderFavs() {
-  const l = Sync.favs();
-  view.innerHTML = l.length ? l.map(f => showItem(f, true)).join('') : '<p class="dim">Aucun favori. Utilise la recherche ou ajoute un flux RSS dans Réglages.</p>';
+  const all = Sync.favs(), d = listsData();
+  let cur = localStorage.getItem('favlist') || 'all'; if (cur !== 'all' && !d.lists.some(x => x.id === cur)) cur = 'all';
+  const l = cur === 'all' ? all : all.filter(f => (d.members[f.feedUrl] || []).includes(cur));
+  const chips = `<div class="tglrow lchips"><button type="button" class="tgl${cur === 'all' ? ' on' : ''}" data-l="all">Tous les favoris</button>${d.lists.map(x => `<button type="button" class="tgl${cur === x.id ? ' on' : ''}" data-l="${x.id}">${esc(x.name)}</button>`).join('')}<button type="button" class="tgl" data-l="new">+ Nouvelle liste</button></div>` +
+    (cur !== 'all' ? '<div class="tglrow lmanage"><button type="button" class="tgl" data-l="rename">Renommer</button><button type="button" class="tgl" data-l="delete">Supprimer la liste</button></div>' : '');
+  const empty = cur === 'all' ? '<p class="dim">Aucun favori. Utilise l\'onglet Ajouter ou la recherche.</p>' : '<p class="dim">Cette liste est vide. Ouvre un podcast des favoris et touche « Listes » pour l\'y ajouter.</p>';
+  view.innerHTML = chips + (l.length ? l.map(f => showItem(f, true)).join('') : empty);
+  view.querySelectorAll('[data-l]').forEach(b => b.onclick = async () => {
+    const k = b.dataset.l;
+    if (k === 'new') { const n = await askName('Nouvelle liste'); if (n) { const dd = listsData(), id = newId(); dd.lists.push({ id, name: n }); saveLists(dd); localStorage.setItem('favlist', id); renderFavs(); } return; }
+    if (k === 'rename') { const x = d.lists.find(y => y.id === cur), n = await askName('Renommer la liste', x.name); if (n) { const dd = listsData(); dd.lists.find(y => y.id === cur).name = n; saveLists(dd); renderFavs(); } return; }
+    if (k === 'delete') { const x = d.lists.find(y => y.id === cur); if (confirm(`Supprimer la liste « ${x.name} » ? Les podcasts restent dans tes favoris.`)) { const dd = listsData(); dd.lists = dd.lists.filter(y => y.id !== cur); Object.keys(dd.members).forEach(u => { dd.members[u] = dd.members[u].filter(i => i !== cur); if (!dd.members[u].length) delete dd.members[u]; }); saveLists(dd); localStorage.setItem('favlist', 'all'); renderFavs(); } return; }
+    localStorage.setItem('favlist', k); renderFavs();
+  });
   view.querySelectorAll('.item').forEach((el, i) => el.onclick = ev => {
-    if (ev.target.closest('[data-star]')) { // retire (ou remet) le favori d'un clic ; l'élément disparaît à la prochaine ouverture de la liste
-      toggleFav(l[i]);
+    if (ev.target.closest('[data-star]')) {
+      if (cur !== 'all') { // dans une liste personnalisée : on retire seulement de cette liste
+        const dd = listsData(), u = l[i].feedUrl; dd.members[u] = (dd.members[u] || []).filter(x => x !== cur); if (!dd.members[u].length) delete dd.members[u]; saveLists(dd);
+        el.classList.add('removed'); setStar(ev.target.closest('[data-star]'), false); return;
+      }
+      toggleFav(l[i]); // retire (ou remet) le favori d'un clic ; l'élément disparaît à la prochaine ouverture de la liste
       const on = Sync.favs().some(x => x.feedUrl === l[i].feedUrl);
       setStar(ev.target.closest('[data-star]'), on); el.classList.toggle('removed', !on);
       return;
     }
     openFeed(l[i]);
+  });
+}
+// Choix des listes d'un podcast (fiche du podcast)
+function listsSheet(feed, onDone) {
+  withShare(() => {
+    const isFavNow = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
+    const draw = () => {
+      const d = listsData(), mem = d.members[feed.feedUrl] || [];
+      m.querySelector('.lbody').innerHTML = d.lists.length ? d.lists.map(x => `<label class="lrow"><input type="checkbox" data-id="${x.id}"${mem.includes(x.id) ? ' checked' : ''}><span>${esc(x.name)}</span></label>`).join('') : '<p class="dim">Aucune liste personnalisée pour l\'instant.</p>';
+      m.querySelectorAll('input[data-id]').forEach(c => c.onchange = () => {
+        if (c.checked && !isFavNow()) toggleFav(feed); // un podcast d'une liste est toujours dans les favoris
+        const dd = listsData(), u = feed.feedUrl, s = new Set(dd.members[u] || []); c.checked ? s.add(c.dataset.id) : s.delete(c.dataset.id);
+        if (s.size) dd.members[u] = [...s]; else delete dd.members[u]; saveLists(dd);
+      });
+    };
+    const m = modal(`<h3>Listes</h3><p class="dim sm">${esc(feed.title)}</p><div class="lbody"></div><button type="button" id="lnew" class="abtn">+ Nouvelle liste</button><button data-close class="ghost">Terminer</button>`);
+    m.onclose = () => onDone && onDone();
+    m.querySelector('#lnew').onclick = async () => { const n = await askName('Nouvelle liste'); if (n) { const dd = listsData(); dd.lists.push({ id: newId(), name: n }); saveLists(dd); } draw(); };
+    draw();
   });
 }
 // ---------- Podcast Index (clé + secret saisis dans Réglages ; synchronisés avec la sauvegarde, au choix de l'utilisateur) ----------
@@ -262,7 +311,7 @@ async function openFeed(f, back) {
     if (!f.title) setTitle(feed.title, back || (() => render()));
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
-      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button></p>` +
+      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button> <button id="lists" class="favpill">${IC.list}<span>Listes</span></button></p>` +
       `<div class="filters fgrid"><select id="ord"><option value="desc">Récents</option><option value="asc">Anciens</option></select>
         <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select></div><div class="tglrow"><button id="chain" type="button" class="tgl"></button><button id="track" type="button" class="tgl"></button><button id="selbtn" type="button" class="tgl" hidden></button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
     const tgl = (id, ic, label, on) => { const b = $('#' + id); b.innerHTML = labeled(ic, label); b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', !!on); };
@@ -307,6 +356,7 @@ async function openFeed(f, back) {
     }; };
     bindSkip('skipin', 'skip.v1'); bindSkip('skipend', 'skipend.v1');
     $('#share').onclick = () => withShare(() => shareFeed(feed));
+    $('#lists').onclick = () => listsSheet(feed, () => { $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'; });
     $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'; };
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;

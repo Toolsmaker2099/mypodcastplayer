@@ -265,3 +265,9 @@ button,.ibtn,.wbtn,#back,#collapse,#expand,.ctl button,#pp,.chip,.tgl,.favpill,.
 h1{min-width:0;flex:0 1 auto}#back{flex:none}
 @media (min-width:900px) and (hover:hover) and (pointer:fine){h1{max-width:calc(50vw - 290px)}#back{order:-1}}
 @media (max-width:899px){h1{max-width:calc(100% - 52px)}}
+/* Listes de favoris */
+.lchips{margin:2px 0 10px}.lmanage{margin:-2px 0 10px}.lmanage .tgl{height:32px;font-size:13px}
+.lbody{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow:auto}
+.lrow{display:flex;align-items:center;gap:12px;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04);text-transform:none;letter-spacing:0;font-size:16px;color:var(--fg);cursor:pointer}
+.lrow input{width:20px;height:20px;accent-color:#8fa2ff;flex:none}
+.sheet .row input{flex:1;min-width:0}
