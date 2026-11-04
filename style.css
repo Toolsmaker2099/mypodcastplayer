@@ -191,3 +191,21 @@ body.noscroll{overflow:hidden}
 .selbar button:disabled{opacity:.35}
 .toast{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:120;background:#1d2340;border:1px solid rgba(165,185,255,.5);padding:10px 16px;border-radius:999px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 .item.ep{animation:none}
+/* Interactions : curseur main, survol (souris) et effet d'enfoncement (tactile et souris) */
+html{-webkit-tap-highlight-color:transparent}
+button,select,label.ghost,a.favpill,.item[data-feed],.ep,#seek,.chip,.seg button,[data-star]{cursor:pointer}
+button:disabled{cursor:not-allowed}
+input:not([type=file]):not([type=checkbox]){cursor:text}
+.item[data-feed],.ep,a.favpill,label.ghost,select,.chip{transition:transform .12s,background .2s,border-color .2s,box-shadow .2s,filter .12s}
+@media (hover:hover) and (pointer:fine){
+  button:not(:disabled):not(.on):hover,a.favpill:hover,label.ghost:hover,select:hover,.chip:not(.on):hover{background:rgba(255,255,255,.09);border-color:rgba(165,185,255,.5);box-shadow:0 0 14px rgba(143,162,255,.22);transform:translateY(-1px)}
+  nav button:not(.on):hover{background:none;box-shadow:none;border-color:transparent;transform:none;color:var(--fg)}
+  .seg button:not(.on):hover{background:rgba(255,255,255,.07);box-shadow:none;border-color:transparent;transform:none;color:var(--fg)}
+  .item[data-feed]:hover,.ep:hover{background:rgba(255,255,255,.06);border-color:rgba(165,185,255,.45);transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.35),0 0 16px rgba(143,162,255,.14)}
+  .ibtn:hover,.wbtn:hover{transform:scale(1.08)}
+  .ctl button:not(:disabled):hover{transform:translateY(-1px) scale(1.04)}
+}
+button:not(:disabled):active,a.favpill:active,label.ghost:active,.chip:active{transform:scale(.94);filter:brightness(.85)}
+.item[data-feed]:active,.ep:active{transform:scale(.985);filter:brightness(.88)}
+.ibtn:active,.wbtn:active{transform:scale(.88)}
+nav button:not(:disabled):active{transform:scale(.94)}
