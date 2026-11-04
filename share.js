@@ -9,7 +9,7 @@ function modal(html) {
   document.body.appendChild(m); m.close = close; return m;
 }
 // Si le proxy RSS (worker) est configuré, le lien envoyé passe par lui : WhatsApp/Instagram affichent alors le titre et la pochette du podcast.
-const cardUrl = feed => { const p = (Sync.cfg().proxy || '').replace(/\/$/, ''); return p ? p + '/p?add=' + encodeURIComponent(feed.feedUrl) + '&n=' + encodeURIComponent((feed.title || '').slice(0, 60)) + '&to=' + encodeURIComponent(shareUrl(feed)) : shareUrl(feed); };
+const cardUrl = feed => { const p = Sync.proxy(); return p ? p + '/p?add=' + encodeURIComponent(feed.feedUrl) + '&n=' + encodeURIComponent((feed.title || '').slice(0, 60)) + '&to=' + encodeURIComponent(shareUrl(feed)) : shareUrl(feed); };
 async function shareFeed(feed) {
   const url = shareUrl(feed), link = cardUrl(feed), text = `Écoute « ${feed.title} » : ${link}`;
   const m = modal(`<h3>Partager</h3><p class="dim sm">${esc(feed.title)}</p><div id="qrbox" class="qrbox">…</div><p class="dim sm">Fais scanner ce code dans l'app (Recherche → Scanner) ou avec l'appareil photo.</p>

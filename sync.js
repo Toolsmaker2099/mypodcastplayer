@@ -5,6 +5,8 @@ const Sync = (() => {
   const FAV_KEY = 'favs.v1', CFG_KEY = 'sync.cfg.v1', VER_KEY = 'sync.ver.v1';
   const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  // Proxy RSS par défaut pour tous les utilisateurs (vide = aucun). Un proxy saisi dans Réglages le remplace.
+  const DEFAULT_PROXY = '';
   const cfg = () => load(CFG_KEY, {});          // { code: 'XXXX-XXXX-XXXX-XXXX', proxy: 'https://…' }
   const setCfg = c => save(CFG_KEY, c);
   const favs = () => load(FAV_KEY, []);
@@ -90,5 +92,5 @@ const Sync = (() => {
     } catch (e) { setCfg(c); throw e; }
   }
   function leave() { const c = cfg(); delete c.code; setCfg(c); localStorage.removeItem(VER_KEY); }
-  return { onSettings: null, favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
+  return { onSettings: null, proxy: () => (cfg().proxy || DEFAULT_PROXY).replace(/\/$/, ''), DEFAULT_PROXY, favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
 })();

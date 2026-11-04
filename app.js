@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.48';
+const APP_VERSION = '2026-11-04.49';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -28,9 +28,9 @@ let tab = 'favs', feedCache = new Map(); // cache mémoire seulement (jamais de 
 // ---------- Réseau (CORS : direct, puis proxy du worker) ----------
 async function fetchText(url) {
   try { const r = await fetch(url); if (r.ok) return await r.text(); } catch {}
-  const c = Sync.cfg();
-  if (!c.proxy) throw new Error('Flux bloqué par CORS : configure le proxy dans Réglages.');
-  const r = await fetch(`${c.proxy.replace(/\/$/, '')}/?url=${encodeURIComponent(url)}`);
+  const px = Sync.proxy();
+  if (!px) throw new Error('Flux bloqué par CORS : configure le proxy dans Réglages.');
+  const r = await fetch(`${px}/?url=${encodeURIComponent(url)}`);
   if (r.status === 404 || r.status === 410) throw new Error("Ce flux n'existe plus (erreur " + r.status + ' : adresse périmée ou déplacée).');
   if (!r.ok) throw new Error('Proxy ' + r.status);
   return r.text();
@@ -115,7 +115,7 @@ async function piGet(path) {
   let r;
   try { r = await fetch('https://api.podcastindex.org/api/1.0/' + path, { headers }); }
   catch (e) { // CORS/réseau : repli par le proxy du worker, s'il est configuré
-    const p = Sync.cfg().proxy;
+    const p = Sync.proxy();
     if (!p) throw new Error('Podcast Index injoignable depuis le navigateur : configure le proxy (worker) dans Réglages.');
     r = await fetch(p.replace(/\/$/, '') + '/podcastindex/' + path, { headers });
   }
@@ -330,7 +330,7 @@ function renderSettings() {
   view.innerHTML = `<label>Ajouter un flux RSS</label><form id="af" class="row"><input id="rss" placeholder="https://…/feed.xml"><button>Ajouter</button></form><p id="am" class="dim"></p>
   <label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
   <label>Podcast Index (annuaire)</label><input id="pk" value="${esc(piCfg().key || '')}" placeholder="Clé (API Key)" autocomplete="off" autocapitalize="off" spellcheck="false"><input id="ps" type="password" value="${esc(piCfg().secret || '')}" placeholder="Secret" autocomplete="off"><p><button id="pisave">Enregistrer</button></p><p id="pim" class="dim"></p>
-  <label>Proxy RSS (worker, si un flux est bloqué)</label><input id="cu" value="${esc(c.proxy || '')}" placeholder="https://rss.xxx.workers.dev">
+  <label>Proxy RSS (worker, si un flux est bloqué)</label><input id="cu" value="${esc(c.proxy || '')}" placeholder="${esc(Sync.DEFAULT_PROXY || 'https://rss.xxx.workers.dev')}">
   <p><button id="cs">Enregistrer le proxy</button></p>
   <label>Application</label><p class="dim">Version ${APP_VERSION}</p><p><button id="upd">Forcer la mise à jour</button></p>`;
   $('#upd').onclick = async () => {
