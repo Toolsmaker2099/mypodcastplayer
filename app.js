@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.39';
+const APP_VERSION = '2026-11-04.40';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -270,7 +270,7 @@ async function openFeed(f, back) {
       const m = numMap(key), v = num(e.target.value);
       if (v) m[feed.feedUrl] = v; else delete m[feed.feedUrl];
       try { localStorage.setItem(key, JSON.stringify(m)); } catch {}
-      if (feed.feedUrl === curFeedUrl) { curSkip = skipFor(curFeedUrl); curSkipEnd = skipEndFor(curFeedUrl); }
+      if (feed.feedUrl === curFeedUrl) { curSkip = skipFor(curFeedUrl); curSkipEnd = skipEndFor(curFeedUrl); earlyDone = false; armEnd(); }
     }; };
     bindSkip('skipin', 'skip.v1'); bindSkip('skipend', 'skipend.v1');
     $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'; };
@@ -364,7 +364,7 @@ function play(ep, show, art, feedUrl) {
   audio.crossOrigin = plain ? null : 'anonymous';
   audio.src = ep.url; note(plain && nightOn ? 'Mode nuit indisponible pour ce podcast.' : '');
   audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
-  curFeedUrl = feedUrl; curSkipEnd = skipEndFor(feedUrl); earlyDone = false;
+  curFeedUrl = feedUrl; curSkipEnd = skipEndFor(feedUrl); earlyDone = false; curDurHint = durSec(ep.dur);
   const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
   if (skip > 0) audio.addEventListener('canplay', () => { if (audio.duration > skip) audio.currentTime = skip; }, { once: true });
   const cover = (ep.image || art || '').replace(/\d+x\d+bb/, '600x600bb');
@@ -400,15 +400,23 @@ function resetSeek() { seeking = false; setRatio(0); syncTimes(); }
 ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => onAudio(ev, syncSeek));
 onAudio('timeupdate', checkSleep);
 // Sauter les dernières secondes : on termine l'épisode (et on enchaîne si activé) quand il ne reste que ce délai.
-onAudio('timeupdate', () => {
-  const d = audio.duration;
-  if (!curSkipEnd || earlyDone || !isFinite(d) || d <= curSkipEnd + curSkip + 1 || audio.paused) return;
-  if (d - audio.currentTime <= curSkipEnd + 0.05) {
-    earlyDone = true;
-    if (chain && queue.length && qi < queue.length - 1) playAt(qi + 1);
-    else { audio.pause(); try { audio.currentTime = d; } catch {} }
-  }
-});
+// Minuterie précise (≈ 0,1 s) plutôt que les événements « timeupdate » (≈ 0,25 s) ; la durée du flux RSS sert de repli si le navigateur ne la connaît pas.
+let endT = 0, curDurHint = 0;
+const effDur = () => (isFinite(audio.duration) && audio.duration > 0) ? audio.duration : curDurHint;
+function fireEnd() {
+  earlyDone = true; clearTimeout(endT);
+  if (chain && queue.length && qi < queue.length - 1) playAt(qi + 1);
+  else { audio.pause(); const d = audio.duration; if (isFinite(d)) { try { audio.currentTime = d; } catch {} } }
+}
+function armEnd() {
+  clearTimeout(endT);
+  const d = effDur();
+  if (!curSkipEnd || earlyDone || audio.paused || !d || d <= curSkipEnd + curSkip + 1) return;
+  const left = (d - curSkipEnd - audio.currentTime) / (audio.playbackRate || 1);
+  if (left <= 0.03) { fireEnd(); return; }
+  endT = setTimeout(armEnd, Math.max(10, Math.min(1000, left * 1000 - 20)));
+}
+['playing', 'play', 'seeked', 'timeupdate', 'ratechange', 'loadedmetadata', 'durationchange'].forEach(ev => onAudio(ev, armEnd));
 // Barre de progression maison : active sur toute sa longueur, du premier au dernier pixel.
 const ratioAt = e => { const r = seekEl.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
 const dragTo = e => { const r = ratioAt(e); setRatio(r); syncTimes(r * audio.duration); return r; };
