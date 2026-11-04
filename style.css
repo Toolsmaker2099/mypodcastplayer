@@ -260,3 +260,4 @@ button,.ibtn,.wbtn,#back,#collapse,#expand,.ctl button,#pp,.chip,.tgl,.favpill,.
 .scrollx{overflow:visible;margin:10px 0 0;padding:0}
 .scrollx .seg{width:auto;min-width:0;flex-wrap:wrap}
 .scrollx .seg button{flex:1 1 auto;padding:9px 12px}
+.steps{margin:6px 0;padding-left:22px}.steps li{margin:8px 0;line-height:1.45}

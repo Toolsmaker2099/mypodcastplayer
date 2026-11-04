@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.63';
+const APP_VERSION = '2026-11-04.65';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -349,7 +349,8 @@ function renderSettings() {
   const c = Sync.cfg();
   view.innerHTML = `<label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
   <label>Podcast Index (annuaire)</label><input id="pk" value="${esc(piCfg().key || '')}" placeholder="Clé (API Key)" autocomplete="off" autocapitalize="off" spellcheck="false"><input id="ps" type="password" value="${esc(piCfg().secret || '')}" placeholder="Secret" autocomplete="off"><p><button id="pisave">Enregistrer</button></p><p id="pim" class="dim"></p>
-  <label>Application</label><p class="dim">Version ${APP_VERSION}</p><p><button id="upd">Forcer la mise à jour</button></p>`;
+  <label>Application</label><p class="dim">Version ${APP_VERSION}</p>${isInstalled() ? '<p class="dim">✓ Application installée sur cet appareil</p>' : '<p><button id="inst-set" type="button">Installer l\'app</button></p>'}<p><button id="upd">Forcer la mise à jour</button></p>`;
+  if ($('#inst-set')) { $('#inst-set').onclick = installApp; refreshInstallUi(); }
   $('#upd').onclick = async () => {
     try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); (await caches.keys()).forEach(k => caches.delete(k)); } catch {}
     location.reload();
@@ -559,32 +560,52 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { ch
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
 render(); checkUpdates(); refreshFavs();
 
-// ---------- Bouton / aide d'installation (tant que non installée) ----------
-(() => {
-  const box = $('#install'), txt = $('#install-text'), btn = $('#install-btn');
-  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  if (standalone()) return;
+// ---------- Installation : bouton toujours visible + étapes adaptées à l'appareil et au navigateur ----------
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+// Installée sur cet appareil ? Ouverte en mode application, ou signalée par le navigateur (getInstalledRelatedApps), ou mémorisée (le stockage est partagé avec le navigateur).
+const flagInstalled = v => { try { v ? localStorage.setItem('app.installed', '1') : localStorage.removeItem('app.installed'); } catch {} };
+const isInstalled = () => { if (isStandalone()) { flagInstalled(true); return true; } try { return localStorage.getItem('app.installed') === '1'; } catch { return false; } };
+async function detectInstalled() {
+  if (isStandalone()) { flagInstalled(true); return; }
+  try { if (navigator.getInstalledRelatedApps) { const l = await navigator.getInstalledRelatedApps(); if (l.length > 0) flagInstalled(true); } } catch {}
+}
+const devInfo = (() => {
   const ua = navigator.userAgent;
-  const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const android = /Android/.test(ua);
-  if (!ios && !android) return; // mobile uniquement
-  const iosSafari = ios && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(ua);
-  let deferred = null;
-  const show = (t, withBtn) => { txt.textContent = t; btn.hidden = !withBtn; box.hidden = false; };
-  if (ios) {
-    show(iosSafari
-      ? "Pour installer : touche le bouton Partager (carré avec une flèche), puis « Sur l'écran d'accueil ». Nécessaire pour la lecture écran verrouillé."
-      : "Pour installer l'app sur iPhone, ouvre cette page dans Safari, puis Partager → « Sur l'écran d'accueil ».", false);
-  } else {
-    show("Installe l'app pour la lecture en arrière-plan. Si le bouton ne fait rien : menu du navigateur (⋮) → « Installer l'application » ou « Ajouter à l'écran d'accueil ».", false);
-  }
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault(); deferred = e;
-    show("Installe l'app sur ton téléphone pour l'utiliser comme une vraie application.", true);
-  });
-  btn.onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; box.hidden = true; };
-  window.addEventListener('appinstalled', () => { box.hidden = true; });
+  const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), android = /Android/.test(ua);
+  const br = /SamsungBrowser/.test(ua) ? 'samsung' : /Edg(A|iOS)?\//.test(ua) ? 'edge' : /Firefox|FxiOS/.test(ua) ? 'firefox' : /OPR|OPiOS/.test(ua) ? 'opera' : 'chrome';
+  return { ios, android, mobile: ios || android, br, iosSafari: ios && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(ua) };
 })();
+function installSteps() {
+  const d = devInfo;
+  if (d.ios) return d.iosSafari ? ["Touche le bouton Partager (carré avec une flèche vers le haut) en bas de l'écran.", "Fais défiler et choisis « Sur l'écran d'accueil ».", "Valide avec « Ajouter »."] : ["Sur iPhone, l'installation passe par Safari : ouvre cette page dans Safari.", "Touche Partager (carré avec une flèche), puis « Sur l'écran d'accueil »."];
+  if (d.android) {
+    if (d.br === 'samsung') return ["Touche le menu (trois traits) en bas à droite.", "Choisis « Ajouter la page à » puis « Écran d'accueil », ou « Installer ».", "Valide."];
+    if (d.br === 'firefox') return ["Touche le menu (⋮) en haut à droite.", "Choisis « Installer ».", "Valide."];
+    return ["Touche le menu du navigateur (⋮) en haut à droite.", "Choisis « Installer l'application » (ou « Ajouter à l'écran d'accueil »).", "Valide avec « Installer ».", "Si ces choix n'apparaissent pas, ouvre la page directement dans Chrome (pas dans une autre application) et recommence."];
+  }
+  if (d.br === 'firefox') return ["Firefox pour ordinateur n'installe pas les applications web : utilise Chrome ou Edge pour installer Podcasts."];
+  return ["Dans la barre d'adresse, clique sur l'icône d'installation (écran avec une flèche, à droite).", "Ou ouvre le menu (⋮) → « Enregistrer et partager » → « Installer Podcasts… » (Edge : menu ··· → Applications → « Installer ce site comme une application »).", "Valide avec « Installer »."];
+}
+async function installApp() {
+  const p = window.__bip;
+  if (p) { try { p.prompt(); await p.userChoice; } catch {} window.__bip = null; refreshInstallUi(); return; }
+  withShare(() => modal(`<h3>Installer l'application</h3><ol class="steps">${installSteps().map(s => `<li>${esc(s)}</li>`).join('')}</ol><p class="dim sm">L'installation permet la lecture écran verrouillé et une ouverture plein écran.</p><button data-close class="ghost">Compris</button>`));
+}
+function refreshInstallUi() {
+  const box = $('#install'), txt = $('#install-text'), btn = $('#install-btn');
+  if (isInstalled()) { box.hidden = true; const sb = $('#inst-set'); if (sb) sb.closest('p').innerHTML = '<span class="dim">✓ Application installée sur cet appareil</span>'; return; }
+  if (devInfo.mobile) {
+    box.hidden = false; btn.hidden = false;
+    txt.textContent = window.__bip ? "Installe l'app sur ton téléphone pour l'utiliser comme une vraie application, avec la lecture écran verrouillé." : "Installe l'app pour la lecture écran verrouillé : touche le bouton pour voir comment faire sur ton appareil.";
+    btn.textContent = window.__bip ? "Installer l'app" : 'Comment installer';
+  } else box.hidden = true;
+  const sb = $('#inst-set'); if (sb) sb.textContent = window.__bip ? "Installer l'app" : 'Comment installer';
+}
+$('#install-btn').onclick = installApp;
+window.addEventListener('bip-ready', () => { flagInstalled(false); refreshInstallUi(); }); // le navigateur propose l'installation : l'app n'est donc pas installée
+if (window.__bip) flagInstalled(false);
+window.addEventListener('appinstalled', () => { window.__bip = null; flagInstalled(true); refreshInstallUi(); });
+refreshInstallUi(); detectInstalled().then(refreshInstallUi);
 
 // ---------- Mode nuit (compresseur) et analyse du son pour le visualiseur ----------
 // Le traitement audio exige un fichier servi avec CORS ; sinon le son serait coupé. Si l'hébergeur le refuse, on relit le fichier sur l'autre élément audio, sans traitement.
