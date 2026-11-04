@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.27';
+const APP_VERSION = '2026-11-04.28';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -225,11 +225,12 @@ async function openFeed(f, back) {
     const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
     $('#chain').onclick = () => { chain = !chain; try { localStorage.setItem('chain', chain ? '1' : '0'); } catch {} showChain(); };
     showChain();
-    const prefs = () => { try { return { order: 'desc', min: 0, ...JSON.parse(localStorage.getItem('epprefs')) }; } catch { return { order: 'desc', min: 0 }; } };
+    const allPrefs = () => { try { return JSON.parse(localStorage.getItem('epprefs.v2')) || {}; } catch { return {}; } };
+    const prefs = () => ({ order: 'desc', min: 0, ...allPrefs()[feed.feedUrl] }); // réglages propres à ce podcast
     const p0 = prefs(); $('#ord').value = p0.order; $('#mind').value = String(p0.min);
     const drawEps = () => {
       const p = { order: $('#ord').value, min: +$('#mind').value };
-      try { localStorage.setItem('epprefs', JSON.stringify(p)); } catch {}
+      try { const m = allPrefs(); m[feed.feedUrl] = p; localStorage.setItem('epprefs.v2', JSON.stringify(m)); } catch {}
       let list = feed.episodes.map((e, i) => ({ e, i, t: Date.parse(e.date) || 0 }));
       if (p.min) list = list.filter(x => !durSec(x.e.dur) || durSec(x.e.dur) >= p.min * 60); // durée inconnue : conservé
       list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
