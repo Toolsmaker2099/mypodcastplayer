@@ -85,3 +85,7 @@ body.noscroll{overflow:hidden}
 #player.full .ctl{margin:14px 0 4px}
 #player.full #pp{width:78px;height:78px;font-size:26px}
 @media (prefers-reduced-motion:reduce){#viz{opacity:.6}}
+/* Liseré néon : détache le lecteur du fond (hors plein écran) */
+#player:not(.full){border:1px solid rgba(155,176,255,.85);background:rgba(14,16,30,.94);
+ box-shadow:0 0 0 1px rgba(195,166,255,.25),0 0 10px rgba(155,176,255,.55),0 0 28px rgba(195,166,255,.32),0 18px 50px rgba(0,0,0,.6),inset 0 0 14px rgba(155,176,255,.12)}
+#player.full{border:0;box-shadow:none}
