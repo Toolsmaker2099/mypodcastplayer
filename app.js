@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.98';
+const APP_VERSION = '2026-11-04.99';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -327,9 +327,13 @@ const piMap = x => ({ feedUrl: x.url, title: x.title, image: x.artwork || x.imag
   genre: catFr(Object.values(x.categories || {})[0] || ''), count: x.episodeCount, last: (x.newestItemPubdate || x.newestItemPublishTime) ? new Date((x.newestItemPubdate || x.newestItemPublishTime) * 1000).toISOString() : '', desc: (x.description || '').replace(/<[^>]*>/g, '').slice(0, 300) });
 let searchSrc = localStorage.getItem('src') || '';
 const PRODUCERS = [
-  ['France Inter', /france inter/i], ['France Culture', /france culture/i], ['franceinfo', /franceinfo|france info/i],
+  ['France Inter', /france inter/i], ['France Culture', /france culture/i], ['Franceinfo', /franceinfo|france info/i],
   ['France TV', /france t[ée]l[ée]visions|france\.?\s?tv/i], ['Radio France', /radio france|france (inter|culture|info|bleu|musique)|\bmouv|\bfip\b/i],
   ['RTL', /\brtl\b/i], ['Europe 1', /europe 1/i], ['RFI', /\brfi\b|radio france internationale/i], ['Arte', /\barte\b/i],
+  ['RMC', /\brmc\b/i], ['BFM', /\bbfm/i], ['RTBF', /\brtbf\b|auvio/i], ['RTS', /\brts\b|radio t[ée]l[ée]vision suisse/i], ['Radio-Canada', /radio-canada|ici radio-canada/i],
+  ['Binge Audio', /binge audio/i], ['Louie Media', /louie media|louie/i], ['Nouvelles Écoutes', /nouvelles [ée]coutes/i], ['Slate', /\bslate\b/i],
+  ['Le Monde', /\ble monde\b/i], ['Libération', /lib[ée]ration/i], ['Le Figaro', /figaro/i], ['Les Echos', /les [ée]chos/i], ['Brut', /\bbrut\b/i],
+  ['BBC', /\bbbc\b/i], ['NPR', /\bnpr\b/i], ['Audible', /\baudible\b/i], ['Spotify Studios', /spotify/i],
 ];
 let searchProd = '', searchQ = '', filtersOpen = false;
 const seg = (id, opts, val) => `<div class="seg" id="${id}">${opts.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
