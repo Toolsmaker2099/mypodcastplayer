@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.25';
+const APP_VERSION = '2026-11-04.26';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -368,7 +368,7 @@ $('#sleep').onclick = () => {
 };
 function setSleep(min) {
   clearTimeout(sleepT); sleepEnd = min ? Date.now() + min * 60000 : 0;
-  $('#sleep').textContent = min ? `☾ ${min} min` : '☾ Off';
+  $('#sleep').textContent = min ? `☾ ${min} min` : '☾ Minuteur'; $('#sleep').classList.toggle('on', !!min);
   if (min) sleepT = setTimeout(checkSleep, min * 60000 + 100);
 }
 function checkSleep() {
@@ -432,7 +432,7 @@ render(); checkUpdates(); refreshFavs();
 // Web Audio exige un fichier servi avec CORS ; sinon le son serait coupé. On teste donc avant de brancher le traitement.
 let nightOn = localStorage.getItem('night') === '1', vizReal = localStorage.getItem('vizreal') === '1', ctx = null, comp = null, makeup = null, analyser = null;
 const nightBtn = $('#night');
-const showNight = () => { nightBtn.textContent = nightOn ? '☼ Nuit on' : '☼ Nuit off'; nightBtn.style.color = nightOn ? 'var(--acc)' : ''; };
+const showNight = () => { nightBtn.textContent = '☼ Nuit'; nightBtn.classList.toggle('on', nightOn); nightBtn.setAttribute('aria-pressed', nightOn); };
 function nightParams() {
   if (!comp) return;
   comp.threshold.value = nightOn ? -45 : 0; comp.ratio.value = nightOn ? 12 : 1;
@@ -475,7 +475,7 @@ nightBtn.onclick = () => {
   activateGraph();
 };
 const vizBtn = $('#vizreal');
-const showViz = () => { vizBtn.textContent = vizReal ? '▮▮ Barres réelles : oui' : '▮▮ Barres réelles : non'; vizBtn.style.color = vizReal ? 'var(--acc)' : ''; };
+const showViz = () => { vizBtn.textContent = '▮▮ Barres'; vizBtn.classList.toggle('on', vizReal); vizBtn.setAttribute('aria-pressed', vizReal); };
 vizBtn.onclick = () => { vizReal = !vizReal; localStorage.setItem('vizreal', vizReal ? '1' : '0'); showViz(); if (vizReal) activateGraph(); };
 audio.addEventListener('error', () => {
   if (!audio.src) return;
