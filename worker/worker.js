@@ -5,6 +5,9 @@ export default {
     const cors = { 'Access-Control-Allow-Origin': env.ALLOW_ORIGIN || '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'X-Auth-Date, X-Auth-Key, Authorization', 'Vary': 'Origin' };
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const u = new URL(req.url);
+    // Refuse les appels venant d'un autre site que le tien (si ALLOW_ORIGIN est défini)
+    const origin = req.headers.get('Origin');
+    if (env.ALLOW_ORIGIN && origin && origin !== env.ALLOW_ORIGIN) return new Response('site non autorisé', { status: 403, headers: cors });
     // Relais Podcast Index (repli si le navigateur ne peut pas l'appeler directement) : /podcastindex/search/byterm?q=…
     if (u.pathname.startsWith('/podcastindex/')) {
       const h = {};
