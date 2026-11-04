@@ -23,3 +23,4 @@ nav button{flex:1;border-radius:0;background:none;padding:14px 0;color:var(--dim
 [hidden]{display:none!important}
 .row{display:flex;gap:8px}.row>button{white-space:nowrap}
 label{display:block;margin-top:14px;color:var(--dim);font-size:14px}
+#install{margin:8px 16px;padding:12px;border-radius:12px;background:var(--card);border:1px solid #232a44}#install p{margin:0 0 8px;font-size:14px}#install-btn{background:var(--acc);color:#0b0d14;font-weight:700}
