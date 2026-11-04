@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.30';
+const APP_VERSION = '2026-11-04.31';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -347,6 +347,9 @@ function play(ep, show, art, feedUrl) {
     navigator.mediaSession.metadata = new MediaMetadata({ title: ep.title, artist: show, artwork: cover ? [{ src: cover, sizes: '512x512' }] : [] });
   }
 }
+const setPlaying = on => $('#player').classList.toggle('playing', on);
+['playing', 'play'].forEach(ev => audio.addEventListener(ev, () => setPlaying(true)));
+['pause', 'ended', 'emptied', 'error'].forEach(ev => audio.addEventListener(ev, () => setPlaying(false)));
 audio.addEventListener('play', () => { $('#pp').textContent = '❚❚'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'playing'); });
 audio.addEventListener('pause', () => { $('#pp').textContent = '▶'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); });
 const seekEl = $('#seek');
