@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.65';
+const APP_VERSION = '2026-11-04.66';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -109,21 +109,14 @@ function renderFavs() {
   });
 }
 // ---------- Podcast Index (clé + secret saisis dans Réglages ; synchronisés avec la sauvegarde, au choix de l'utilisateur) ----------
-const piCfg = () => { try { return JSON.parse(localStorage.getItem('pi.cfg')) || {}; } catch { return {}; } };
-const piReady = () => { const c = piCfg(); return !!(c.key && c.secret); };
+const piReady = () => true;
+// Podcast Index : toujours via le worker de l'app, qui détient la clé et le secret côté serveur (rien à saisir, rien d'exposé).
 async function piGet(path) {
-  const c = piCfg(), date = String(Math.floor(Date.now() / 1000));
-  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(c.key + c.secret + date));
-  const auth = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-  const headers = { 'X-Auth-Date': date, 'X-Auth-Key': c.key, Authorization: auth };
+  const p = Sync.proxy();
+  if (!p) throw new Error('Service Podcast Index indisponible.');
   let r;
-  try { r = await fetch('https://api.podcastindex.org/api/1.0/' + path, { headers }); }
-  catch (e) { // CORS/réseau : repli par le proxy du worker, s'il est configuré
-    const p = Sync.proxy();
-    if (!p) throw new Error('Podcast Index injoignable depuis le navigateur : configure le proxy (worker) dans Réglages.');
-    r = await fetch(p.replace(/\/$/, '') + '/podcastindex/' + path, { headers });
-  }
-  if (r.status === 401 || r.status === 403) throw new Error('Clé ou secret Podcast Index refusé.');
+  try { r = await fetch(p + '/podcastindex/' + path); } catch { throw new Error('Podcast Index injoignable (réseau).'); }
+  if (r.status === 401 || r.status === 403) throw new Error('Podcast Index non configuré sur le serveur (clé et secret manquants dans le worker).');
   if (!r.ok) throw new Error('Podcast Index ' + r.status);
   return (await r.json()).feeds || [];
 }
@@ -166,7 +159,7 @@ const appleGenre = () => localStorage.getItem('apple.genre') || '';
 const PI_MODES = [['search', 'Mots-clés'], ['title', 'Titre'], ['trending', 'Tendances'], ['recent', 'Mises à jour'], ['new', 'Nouveaux']];
 const PI_HINT = { search: 'Mot-clé (facultatif)…', title: 'Titre du podcast…', trending: 'Filtrer (facultatif)…', recent: 'Filtrer (facultatif)…', new: 'Filtrer (facultatif)…' };
 function renderSearch() {
-  if (!searchSrc) searchSrc = piReady() ? 'pi' : 'apple';
+  if (!searchSrc) searchSrc = 'pi';
   if (searchSrc === 'pi' && !piReady()) searchSrc = 'apple';
   const pi = searchSrc === 'pi', p = piPrefs();
   const active = pi ? [p.lang !== 'fr', !!p.cat, p.sort !== 'rel', p.clean, p.full, !!searchProd].filter(Boolean).length : 0;
@@ -348,7 +341,6 @@ const feedFromTextSafe = t => { try { return typeof feedFromText === 'function' 
 function renderSettings() {
   const c = Sync.cfg();
   view.innerHTML = `<label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
-  <label>Podcast Index (annuaire)</label><input id="pk" value="${esc(piCfg().key || '')}" placeholder="Clé (API Key)" autocomplete="off" autocapitalize="off" spellcheck="false"><input id="ps" type="password" value="${esc(piCfg().secret || '')}" placeholder="Secret" autocomplete="off"><p><button id="pisave">Enregistrer</button></p><p id="pim" class="dim"></p>
   <label>Application</label><p class="dim">Version ${APP_VERSION}</p>${isInstalled() ? '<p class="dim">✓ Application installée sur cet appareil</p>' : '<p><button id="inst-set" type="button">Installer l\'app</button></p>'}<p><button id="upd">Forcer la mise à jour</button></p>`;
   if ($('#inst-set')) { $('#inst-set').onclick = installApp; refreshInstallUi(); }
   $('#upd').onclick = async () => {
@@ -379,14 +371,6 @@ function renderSettings() {
     }
   }
   drawBackup();
-  $('#pisave').onclick = async () => {
-    const c = { key: $('#pk').value.trim(), secret: $('#ps').value.trim() };
-    localStorage.setItem('pi.cfg', JSON.stringify(c));
-    if (!c.key || !c.secret) { $('#pim').textContent = 'Clé et secret requis.'; return; }
-    $('#pim').textContent = 'Test…';
-    try { const n = (await piSearch('france inter')).length; $('#pim').textContent = `OK : ${n} résultats de test.`; searchSrc = 'pi'; localStorage.setItem('src', 'pi'); }
-    catch (e) { $('#pim').textContent = 'Échec : ' + e.message; }
-  };
 }
 
 // ---------- Lecture (depuis 0 par défaut ; le suivi de lecture est une option par podcast) ----------

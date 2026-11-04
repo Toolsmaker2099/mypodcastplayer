@@ -10,11 +10,13 @@ export default {
     if (env.ALLOW_ORIGIN && origin && origin !== env.ALLOW_ORIGIN) return new Response('site non autorisé', { status: 403, headers: cors });
     // Relais Podcast Index (repli si le navigateur ne peut pas l'appeler directement) : /podcastindex/search/byterm?q=…
     if (u.pathname.startsWith('/podcastindex/')) {
-      const h = {};
-      for (const k of ['X-Auth-Date', 'X-Auth-Key', 'Authorization']) if (req.headers.get(k)) h[k] = req.headers.get(k);
-      h['User-Agent'] = 'podcasts-pwa';
-      const r = await fetch('https://api.podcastindex.org/api/1.0/' + u.pathname.slice('/podcastindex/'.length) + u.search, { headers: h });
-      return new Response(r.body, { status: r.status, headers: { ...cors, 'Content-Type': 'application/json' } });
+      // La clé et le secret Podcast Index sont des secrets du worker (PI_KEY, PI_SECRET) : les utilisateurs n'en saisissent aucun.
+      if (env.ALLOW_ORIGIN && !origin) return new Response('origine requise', { status: 403, headers: cors });
+      if (!env.PI_KEY || !env.PI_SECRET) return new Response('PI_KEY / PI_SECRET manquants dans le worker', { status: 403, headers: cors });
+      const date = String(Math.floor(Date.now() / 1000));
+      const sig = [...new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(env.PI_KEY + env.PI_SECRET + date)))].map(b => b.toString(16).padStart(2, '0')).join('');
+      const r = await fetch('https://api.podcastindex.org/api/1.0/' + u.pathname.slice('/podcastindex/'.length) + u.search, { headers: { 'User-Agent': 'podcasts-pwa', 'X-Auth-Date': date, 'X-Auth-Key': env.PI_KEY, Authorization: sig } });
+      return new Response(r.body, { status: r.status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' } });
     }
     // Carte de partage (WhatsApp, Instagram…) : /p?add=<flux>&to=<lien de l'app>. Les robots lisent les balises og:*, les personnes sont redirigées vers l'app.
     if (u.pathname === '/p') return share(u, env);
