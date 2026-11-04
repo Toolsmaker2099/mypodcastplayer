@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.26';
+const APP_VERSION = '2026-11-04.27';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -115,7 +115,7 @@ const CAT_FR = {
 const catFr = c => CAT_FR[c] || c;
 let piCats = null;
 const piCategories = async () => piCats || (piCats = (await piGet('categories/list')).map(c => c.name).sort((x, y) => x.localeCompare(y, 'fr')));
-const piPrefs = () => { try { return { mode: 'search', lang: 'fr', cat: '', sort: 'rel', ...JSON.parse(localStorage.getItem('pi.prefs')) }; } catch { return { mode: 'search', lang: 'fr', cat: '', sort: 'rel' }; } };
+const piPrefs = () => { const d = { mode: 'search', lang: 'fr', cat: '', sort: 'rel', clean: false, full: false }; try { const s = JSON.parse(localStorage.getItem('pi.prefs')); return { ...d, ...s, mode: ['search', 'title', 'trending', 'recent', 'new'].includes(s && s.mode) ? s.mode : 'search' }; } catch { return d; } };
 const piMap = x => ({ feedUrl: x.url, title: x.title, image: x.artwork || x.image, author: x.author || x.ownerName,
   genre: catFr(Object.values(x.categories || {})[0] || ''), count: x.episodeCount, last: (x.newestItemPubdate || x.newestItemPublishTime) ? new Date((x.newestItemPubdate || x.newestItemPublishTime) * 1000).toISOString() : '', desc: (x.description || '').replace(/<[^>]*>/g, '').slice(0, 300) });
 let searchSrc = localStorage.getItem('src') || '';
@@ -124,79 +124,93 @@ const PRODUCERS = [
   ['France TV', /france t[ée]l[ée]visions|france\.?\s?tv/i], ['Radio France', /radio france|france (inter|culture|info|bleu|musique)|\bmouv|\bfip\b/i],
   ['RTL', /\brtl\b/i], ['Europe 1', /europe 1/i], ['RFI', /\brfi\b|radio france internationale/i], ['Arte', /\barte\b/i],
 ];
-let searchProd = '', searchQ = '';
+let searchProd = '', searchQ = '', filtersOpen = false;
+const seg = (id, opts, val) => `<div class="seg" id="${id}">${opts.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
+const SVG_SEARCH = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+const PI_MODES = [['search', 'Mots-clés'], ['title', 'Titre'], ['trending', 'Tendances'], ['recent', 'Mises à jour'], ['new', 'Nouveaux']];
+const PI_HINT = { search: 'Rechercher…', title: 'Titre du podcast…', trending: 'Filtrer (facultatif)…', recent: 'Filtrer (facultatif)…', new: 'Filtrer (facultatif)…' };
 function renderSearch() {
   if (!searchSrc) searchSrc = piReady() ? 'pi' : 'apple';
   if (searchSrc === 'pi' && !piReady()) searchSrc = 'apple';
-  view.innerHTML = `<div class="chips src"><button type="button" class="chip${searchSrc === 'apple' ? ' on' : ''}" data-s="apple">Apple</button><button type="button" class="chip${searchSrc === 'pi' ? ' on' : ''}" data-s="pi">Podcast Index${piReady() ? '' : ' (clé requise)'}</button></div>
-    ${searchSrc === 'pi' ? `<div class="filters pi"><select id="pimode"><option value="search">Recherche</option><option value="trending">Tendances</option><option value="recent">Nouveautés</option></select>
-      <select id="pilang"><option value="fr">Français</option><option value="en">Anglais</option><option value="">Toutes langues</option></select>
-      <select id="picat"><option value="">Toutes catégories</option></select>
-      <select id="pisort"><option value="rel">Pertinence / classement</option><option value="new">Plus récents</option><option value="eps">Plus d'épisodes</option><option value="az">Titre A–Z</option></select></div>` : ''}
-    <form id="sf" class="row"><input type="search" id="q" placeholder="Rechercher un podcast…" value="${esc(searchQ)}"><button>OK</button></form>
-    ${searchSrc === 'pi' ? `<div class="chips">${PRODUCERS.map(([n]) => `<button type="button" class="chip${n === searchProd ? ' on' : ''}" data-p="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}<div id="res"></div>`;
+  const pi = searchSrc === 'pi', p = piPrefs();
+  const active = pi ? [p.lang !== 'fr', !!p.cat, p.sort !== 'rel', p.clean, p.full, !!searchProd].filter(Boolean).length : 0;
+  view.innerHTML = `${seg('srcseg', [['apple', 'Apple Podcasts'], ['pi', piReady() ? 'Podcast Index' : 'Podcast Index 🔒']], searchSrc)}
+    <form id="sf" class="searchbar">${SVG_SEARCH}<input type="search" id="q" placeholder="${pi ? PI_HINT[p.mode] : 'Rechercher un podcast…'}" value="${esc(searchQ)}" enterkeyhint="search"><button>Chercher</button></form>
+    ${pi ? `<div class="scrollx">${seg('modeseg', PI_MODES, p.mode)}</div>
+    <button id="ftoggle" type="button" class="ghost">⚙ Filtres${active ? ` <span class="badge">${active}</span>` : ''}<span class="car">${filtersOpen ? '⌃' : '⌄'}</span></button>
+    <div id="fpanel" class="panel" ${filtersOpen ? '' : 'hidden'}>
+      <div class="frow"><span>Langue</span>${seg('langseg', [['fr', 'Français'], ['en', 'Anglais'], ['', 'Toutes']], p.lang)}</div>
+      <div class="frow"><span>Catégorie</span><select id="picat"><option value="">Toutes les catégories</option></select></div>
+      <div class="frow"><span>Trier par</span>${seg('sortseg', [['rel', 'Pertinence'], ['new', 'Récents'], ['eps', 'Épisodes'], ['az', 'A–Z']], p.sort)}</div>
+      <div class="frow"><span>Options</span><div class="opts2"><button type="button" id="oclean" class="tog${p.clean ? ' on' : ''}">Sans contenu explicite</button><button type="button" id="ofull" class="tog${p.full ? ' on' : ''}">Chercher aussi dans les descriptions</button></div></div>
+      <div class="frow"><span>Producteur</span><div class="chips wrap">${PRODUCERS.map(([n]) => `<button type="button" class="chip${n === searchProd ? ' on' : ''}" data-p="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>
+    </div>` : ''}<div id="res"></div>`;
+
+  const bind = list => $('#res').querySelectorAll('.item').forEach((el, i) => {
+    el.onclick = ev => {
+      if (!list[i].feedUrl) return;
+      if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; }
+      else openFeed(list[i], () => render());
+    };
+  });
   const run = async () => {
     const q = $('#q').value.trim(); searchQ = q;
-    const prod = searchSrc === 'pi' ? PRODUCERS.find(p => p[0] === searchProd) : null;
-    if (!q && !prod && !(searchSrc === 'pi' && piPrefs().mode !== 'search')) { $('#res').innerHTML = ''; return; }
+    const p = piPrefs(), prod = pi ? PRODUCERS.find(x => x[0] === searchProd) : null;
+    const browse = pi && ['trending', 'recent', 'new'].includes(p.mode);
+    if (!q && !prod && !browse) { $('#res').innerHTML = ''; return; }
     $('#res').innerHTML = '<p class="dim">Recherche…</p>';
     try {
-      if (searchSrc === 'pi') {
-        const p = piPrefs();
+      if (pi) {
         let feeds;
-        if (p.mode === 'trending') feeds = await piGet(`podcasts/trending?max=100&since=${Math.floor(Date.now() / 1000) - 14 * 86400}${p.lang ? '&lang=' + p.lang : ''}${p.cat ? '&cat=' + encodeURIComponent(p.cat) : ''}`);
-        else if (p.mode === 'recent') feeds = await piGet(`recent/feeds?max=100${p.lang ? '&lang=' + p.lang : ''}${p.cat ? '&cat=' + encodeURIComponent(p.cat) : ''}`);
+        const since = days => `&since=${Math.floor(Date.now() / 1000) - days * 86400}`, lg = p.lang ? '&lang=' + p.lang : '', ct = p.cat ? '&cat=' + encodeURIComponent(p.cat) : '';
+        if (p.mode === 'trending') feeds = await piGet(`podcasts/trending?max=100${since(14)}${lg}${ct}`);
+        else if (p.mode === 'recent') feeds = await piGet(`recent/feeds?max=100${lg}${ct}`);
+        else if (p.mode === 'new') feeds = await piGet(`recent/newfeeds?max=100${since(30)}`);
         else {
-          feeds = await piSearch(q || (prod && prod[0]) || '');
-          if (p.lang) feeds = feeds.filter(x => (x.language || '').toLowerCase().startsWith(p.lang));
-          if (p.cat) feeds = feeds.filter(x => Object.values(x.categories || {}).some(c => c.toLowerCase() === p.cat.toLowerCase()));
+          const term = encodeURIComponent(q || (prod && prod[0]) || '');
+          feeds = await piGet(p.mode === 'title' ? `search/bytitle?max=100&q=${term}${p.clean ? '&clean' : ''}` : `search/byterm?max=100&q=${term}${p.clean ? '&clean' : ''}${p.full ? '&fulltext' : ''}`);
         }
         feeds = feeds.filter(x => x.url && !x.dead);
+        if (p.lang && ['search', 'title', 'new'].includes(p.mode)) feeds = feeds.filter(x => (x.language || '').toLowerCase().startsWith(p.lang));
+        if (p.cat && ['search', 'title', 'new'].includes(p.mode)) feeds = feeds.filter(x => Object.values(x.categories || {}).some(c => c.toLowerCase() === p.cat.toLowerCase()));
         if (prod) feeds = feeds.filter(x => prod[1].test(x.author || '') || prod[1].test(x.ownerName || '') || prod[1].test(x.title || ''));
-        if (q && p.mode !== 'search') { const ql = q.toLowerCase(); feeds = feeds.filter(x => ((x.title || '') + ' ' + (x.author || '') + ' ' + (x.description || '')).toLowerCase().includes(ql)); }
+        if (q && browse) { const ql = q.toLowerCase(); feeds = feeds.filter(x => ((x.title || '') + ' ' + (x.author || '') + ' ' + (x.description || '')).toLowerCase().includes(ql)); }
         const lastOf = x => x.newestItemPubdate || x.newestItemPublishTime || 0;
         if (p.sort === 'new') feeds.sort((x, y) => lastOf(y) - lastOf(x));
         else if (p.sort === 'eps') feeds.sort((x, y) => (y.episodeCount || 0) - (x.episodeCount || 0));
         else if (p.sort === 'az') feeds.sort((x, y) => (x.title || '').localeCompare(y.title || '', 'fr'));
         const list = feeds.slice(0, 60).map(piMap);
-        $('#res').innerHTML = list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat.</p>';
-        $('#res').querySelectorAll('.item').forEach((el, i) => {
-          el.onclick = ev => { if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; } else openFeed(list[i], () => render()); };
-        });
-        return;
+        $('#res').innerHTML = `<p class="count dim">${list.length} résultat${list.length > 1 ? 's' : ''}</p>` + (list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat avec ces filtres.</p>');
+        bind(list); return;
       }
-      const url = q ? `https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`
-                    : `https://itunes.apple.com/search?media=podcast&limit=200&country=fr&attribute=artistTerm&term=${encodeURIComponent(prod[0])}`;
-      const r = await (await fetch(url)).json();
-      let res = r.results;
-      if (prod) res = res.filter(x => prod[1].test(x.artistName || '') || prod[1].test(x.collectionName || ''));
-      const list = res.slice(0, 50).map(x => ({ feedUrl: x.feedUrl || '', title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
+      const r = await (await fetch(`https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`)).json();
+      const list = r.results.slice(0, 50).map(x => ({ feedUrl: x.feedUrl || '', title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
       const nofeed = list.filter(f => !f.feedUrl).length;
       $('#res').innerHTML = (nofeed ? `<p class="dim">${nofeed} résultat${nofeed > 1 ? 's' : ''} sans flux public dans l'annuaire Apple (grisé${nofeed > 1 ? 's' : ''}) : impossible de les lire ici.</p>` : '') + (list.map(f => showItem(f, !!f.feedUrl)).join('') || '<p class="dim">Aucun résultat.</p>');
-      $('#res').querySelectorAll('.item').forEach((el, i) => {
-        el.onclick = ev => { if (!list[i].feedUrl) return; if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; } else openFeed(list[i], () => render()); };
-      });
+      bind(list);
     } catch (err) { $('#res').innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
   };
-  view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
-    if (b.dataset.s === 'pi' && !piReady()) { alert('Saisis ta clé et ton secret Podcast Index dans Réglages.'); return; }
-    searchSrc = b.dataset.s; try { localStorage.setItem('src', searchSrc); } catch {}
-    renderSearch();
+  const savePrefs = patch => { try { localStorage.setItem('pi.prefs', JSON.stringify({ ...piPrefs(), ...patch })); } catch {} };
+  const refresh = () => { renderSearch(); };
+  const bindSeg = (id, fn) => { const el = $('#' + id); if (el) el.onclick = e => { const b = e.target.closest('button[data-v]'); if (b) fn(b.dataset.v); }; };
+  bindSeg('srcseg', v => {
+    if (v === 'pi' && !piReady()) { alert('Saisis ta clé et ton secret Podcast Index dans Réglages.'); return; }
+    searchSrc = v; try { localStorage.setItem('src', v); } catch {}
+    refresh();
   });
   $('#sf').onsubmit = e => { e.preventDefault(); run(); };
-  view.querySelectorAll('.chip[data-p]').forEach(b => b.onclick = () => {
-    searchProd = searchProd === b.dataset.p ? '' : b.dataset.p;
-    view.querySelectorAll('.chip[data-p]').forEach(x => x.classList.toggle('on', x.dataset.p === searchProd));
-    run();
-  });
-  if (searchSrc === 'pi') {
-    const p = piPrefs();
-    $('#pimode').value = p.mode; $('#pilang').value = p.lang; $('#pisort').value = p.sort;
-    const save = () => { try { localStorage.setItem('pi.prefs', JSON.stringify({ mode: $('#pimode').value, lang: $('#pilang').value, cat: $('#picat').value, sort: $('#pisort').value })); } catch {} run(); };
-    ['pimode', 'pilang', 'picat', 'pisort'].forEach(id => $('#' + id).onchange = save);
-    piCategories().then(cs => { $('#picat').innerHTML = '<option value="">Toutes catégories</option>' + cs.map(c => ({ c, l: catFr(c) })).sort((x, y) => x.l.localeCompare(y.l, 'fr')).map(({ c, l }) => `<option value="${esc(c)}">${esc(l)}</option>`).join(''); $('#picat').value = p.cat; }).catch(() => {});
+  if (pi) {
+    bindSeg('modeseg', v => { savePrefs({ mode: v }); refresh(); });
+    bindSeg('langseg', v => { savePrefs({ lang: v }); refresh(); });
+    bindSeg('sortseg', v => { savePrefs({ sort: v }); refresh(); });
+    $('#ftoggle').onclick = () => { filtersOpen = !filtersOpen; refresh(); };
+    $('#oclean').onclick = () => { savePrefs({ clean: !p.clean }); refresh(); };
+    $('#ofull').onclick = () => { savePrefs({ full: !p.full }); refresh(); };
+    $('#picat').onchange = e => { savePrefs({ cat: e.target.value }); refresh(); };
+    view.querySelectorAll('.chip[data-p]').forEach(b => b.onclick = () => { searchProd = searchProd === b.dataset.p ? '' : b.dataset.p; refresh(); });
+    piCategories().then(cs => { $('#picat').innerHTML = '<option value="">Toutes les catégories</option>' + cs.map(c => ({ c, l: catFr(c) })).sort((x, y) => x.l.localeCompare(y.l, 'fr')).map(({ c, l }) => `<option value="${esc(c)}">${esc(l)}</option>`).join(''); $('#picat').value = p.cat; }).catch(() => {});
   }
-  if (searchQ || (searchSrc === 'pi' && searchProd) || (searchSrc === 'pi' && piPrefs().mode !== 'search')) run();
+  if (searchQ || (pi && (searchProd || ['trending', 'recent', 'new'].includes(p.mode)))) run();
 }
 async function openFeed(f, back) {
   setTitle(f.title, back || (() => render()));
