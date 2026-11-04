@@ -1,5 +1,5 @@
-const CACHE = 'dodo-v2'; // cache = secours hors-ligne uniquement ; le réseau passe toujours en premier, sans cache HTTP
-const SHELL = ['./', 'index.html', 'app.js', 'sync.js', 'style.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'dodo-v3'; // cache = secours hors-ligne uniquement ; le réseau passe toujours en premier, sans cache HTTP
+const SHELL = ['./', 'index.html', 'app.js', 'sync.js', 'share.js', 'style.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));

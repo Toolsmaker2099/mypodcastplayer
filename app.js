@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.44';
+const APP_VERSION = '2026-11-04.45';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -11,6 +11,8 @@ const IC = {
 IC.moon = svg('<path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/>', 17);
 IC.timer = svg('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5"/>', 17);
 IC.eq = svg('<path d="M5 14v4M9 6v12M13 10v8M17 4v14M21 12v6"/>', 17);
+IC.share = svg('<circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="m8.3 10.8 7.4-4.3M8.3 13.2l7.4 4.3"/>', 18);
+IC.scan = svg('<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/>', 18);
 const labeled = (ic, t) => `${ic}<span>${t}</span>`;
 const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Favori" aria-pressed="${on}">${IC.star}</button>`;
 const setStar = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
@@ -165,6 +167,7 @@ function renderSearch() {
   const pi = searchSrc === 'pi', p = piPrefs();
   const active = pi ? [p.lang !== 'fr', !!p.cat, p.sort !== 'rel', p.clean, p.full, !!searchProd].filter(Boolean).length : 0;
   view.innerHTML = `${seg('srcseg', [['apple', 'Apple Podcasts'], ['pi', piReady() ? 'Podcast Index' : 'Podcast Index 🔒']], searchSrc)}
+    <button id="scanbtn" type="button" class="ghost">${IC.scan} Scanner un QR code</button>
     <form id="sf" class="searchbar">${SVG_SEARCH}<input type="search" id="q" placeholder="${pi ? PI_HINT[p.mode] : 'Mot-clé (facultatif)…'}" value="${esc(searchQ)}" enterkeyhint="search"><button>Chercher</button></form>
     ${pi ? '' : `<div class="frow agrow"><span>Catégorie</span><select id="agenre">${APPLE_GENRES.map(([v, l]) => `<option value="${v}"${v === appleGenre() ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`}
     ${pi ? `<div class="scrollx">${seg('modeseg', PI_MODES, p.mode)}</div>
@@ -237,6 +240,7 @@ function renderSearch() {
     refresh();
   });
   if (!pi) $('#agenre').onchange = e => { try { localStorage.setItem('apple.genre', e.target.value); } catch {} run(); };
+  $('#scanbtn').onclick = () => scanQR();
   $('#sf').onsubmit = e => { e.preventDefault(); run(); };
   if (pi) {
     bindSeg('modeseg', v => { savePrefs({ mode: v }); refresh(); });
@@ -258,7 +262,7 @@ async function openFeed(f, back) {
     const feed = feedCache.get(f.feedUrl) || await loadFeed(f.feedUrl);
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
-      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button></p>` +
+      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button></p>` +
       `<div class="filters"><select id="ord"><option value="desc">Récents d'abord</option><option value="asc">Anciens d'abord</option></select>
         <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select><button id="chain" type="button"></button><button id="track" type="button"></button><button id="selbtn" type="button" hidden>☑ Sélection</button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Lu</button><button type="button" data-a="unread">Non lu</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
     const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
@@ -301,6 +305,7 @@ async function openFeed(f, back) {
       if (feed.feedUrl === curFeedUrl) { curSkip = skipFor(curFeedUrl); curSkipEnd = skipEndFor(curFeedUrl); earlyDone = false; armEnd(); }
     }; };
     bindSkip('skipin', 'skip.v1'); bindSkip('skipend', 'skipend.v1');
+    $('#share').onclick = () => shareFeed(feed);
     $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'; };
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
