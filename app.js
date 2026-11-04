@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.78';
+const APP_VERSION = '2026-11-04.79';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -86,6 +86,16 @@ const meta = f => [f.genre, f.count ? f.count + ' épisodes' : '', f.last ? 'der
 function showItem(f, star, lst = !!f.feedUrl) {
   const ld = listsData(), tags = (ld.members[f.feedUrl] || []).map(id => (ld.lists.find(x => x.id === id) || {}).name).filter(Boolean);
   return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${tags.length ? `<div class="ltags">${tags.map(t => `<span class="ltag">${esc(t)}</span>`).join('')}</div>` : ''}${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div><div class="acts">${lst ? `<button class="ibtn lbtn" data-listadd aria-label="Ajouter à une liste" title="Ajouter à une liste">${IC.list}</button>` : ''}${star ? starBtn(Sync.favs().some(x => x.feedUrl === f.feedUrl)) : ''}</div></div>`;
+}
+function refreshTags(u) { // met à jour les pastilles de listes des cartes visibles pour ce podcast
+  const ld = listsData(), names = (ld.members[u] || []).map(id => (ld.lists.find(x => x.id === id) || {}).name).filter(Boolean);
+  document.querySelectorAll('.item[data-feed]').forEach(it => {
+    if (it.dataset.feed !== u) return;
+    let box = it.querySelector('.ltags');
+    if (!names.length) { if (box) box.remove(); return; }
+    if (!box) { box = document.createElement('div'); box.className = 'ltags'; const m = it.querySelector('.t small.m'); if (m) m.after(box); else it.querySelector('.t').appendChild(box); }
+    box.innerHTML = names.map(t => `<span class="ltag">${esc(t)}</span>`).join('');
+  });
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
@@ -230,7 +240,7 @@ function openPlaylist(id) {
 // Choix des listes d'un podcast (menu ancré au bouton)
 function listsSheet(feed, onDone, anchor) {
   const el = popover(anchor, `<div class="phead">Ajouter à une liste</div><div class="lbody"></div>${newRow('Nouvelle liste')}`, onDone); if (!el) return;
-  const setMember = (id, on) => { const dd = listsData(), u = feed.feedUrl, s = new Set(dd.members[u] || []); on ? s.add(id) : s.delete(id); if (s.size) { dd.members[u] = [...s]; dd.pods[u] = podSnap(feed); } else { delete dd.members[u]; delete dd.pods[u]; } saveLists(dd); };
+  const setMember = (id, on) => { const dd = listsData(), u = feed.feedUrl, s = new Set(dd.members[u] || []); on ? s.add(id) : s.delete(id); if (s.size) { dd.members[u] = [...s]; dd.pods[u] = podSnap(feed); } else { delete dd.members[u]; delete dd.pods[u]; } saveLists(dd); refreshTags(u); };
   const draw = () => {
     const d = listsData(), mem = d.members[feed.feedUrl] || [];
     el.querySelector('.lbody').innerHTML = d.lists.length ? d.lists.map(x => `<label class="lrow"><input type="checkbox" data-id="${x.id}"${mem.includes(x.id) ? ' checked' : ''}><span>${esc(x.name)}</span></label>`).join('') : '<p class="dim sm" style="padding:6px 8px;margin:0">Aucune liste : crées-en une ci-dessous.</p>';
