@@ -39,7 +39,7 @@ nav .on{background:rgba(155,176,255,.16);color:#fff}
 label{display:block;margin-top:18px;color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
 .item .m{display:block;margin-top:2px;font-size:12px}
 .d{margin:6px 0 0;color:var(--dim);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ep.open .d{-webkit-line-clamp:unset;display:block}.ep.open [data-more]{transform:rotate(180deg)}
+.ep.open .d{-webkit-line-clamp:unset;display:block}
 .item .t b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .hero{display:flex;gap:16px;align-items:center;margin:8px 0}.hero img{width:96px;height:96px;border-radius:20px;object-fit:cover;box-shadow:0 10px 30px rgba(0,0,0,.5)}
 .hero b{font-size:18px;display:block}.hero small{display:block;color:var(--dim)}
@@ -143,3 +143,28 @@ body.noscroll{overflow:hidden}
 #collapse{right:10px}
 #player.mini #collapse{width:42px;height:42px}
 #player.full #collapse{width:46px;height:46px;top:calc(12px + env(safe-area-inset-top));left:14px;right:auto}
+
+/* Boutons d'icônes des listes : favori, détails, lecture */
+.ibtn{display:grid;place-items:center;flex:none;width:40px;height:40px;padding:0;border-radius:50%;color:var(--dim);
+ background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.03));border:1px solid rgba(165,185,255,.22);
+ box-shadow:0 2px 8px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1);transition:transform .15s,color .2s,background .2s,box-shadow .2s}
+.ibtn svg{display:block;transition:transform .25s ease,fill .2s}
+.ibtn:active{transform:scale(.9)}
+.ibtn.star.on{color:#ffd166;border-color:rgba(255,209,102,.5);box-shadow:0 0 12px rgba(255,209,102,.25),inset 0 1px 0 rgba(255,255,255,.1)}
+.ibtn.star.on svg path{fill:currentColor}
+.ibtn.playb{color:#0a0c18;background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;box-shadow:0 4px 14px rgba(155,176,255,.35)}
+.ibtn.playb svg{margin-left:2px}
+.ep{gap:8px}
+.ep.open [data-more]{color:var(--acc);border-color:rgba(165,185,255,.5)}.ep.open [data-more] svg{transform:rotate(180deg)}
+.favpill{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:10px 16px;color:var(--fg);background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.03));border:1px solid rgba(165,185,255,.28)}
+.favpill.on{color:#ffd166;border-color:rgba(255,209,102,.5);box-shadow:0 0 12px rgba(255,209,102,.2)}
+.favpill.on svg path{fill:currentColor}
+/* Plein écran : bouton de fermeture à droite */
+#player.full #collapse{left:auto;right:14px}
+#pp svg{display:block;margin:0 auto}
+#pp{display:grid;place-items:center;padding:0}
+#player.mini #pp svg{width:22px;height:22px}
+.ctl #prev svg,.ctl #next svg{display:block;margin:0 auto}
+
+.filters select{background:rgba(255,255,255,.05) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a93b8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;padding-right:34px;text-overflow:ellipsis}
+#chain{border-radius:999px;padding:8px 14px}

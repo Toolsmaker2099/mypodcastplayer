@@ -1,5 +1,15 @@
-const APP_VERSION = '2026-11-04.33';
+const APP_VERSION = '2026-11-04.35';
 const $ = s => document.querySelector(s);
+const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
+const IC = {
+  star: svg('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>', 21),
+  chev: svg('<path d="m6 9 6 6 6-6"/>', 20),
+  play: svg('<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>', 18, true),
+  playBig: svg('<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>', 28, true),
+  pause: svg('<rect x="6" y="5" width="4.5" height="14" rx="1.3"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.3"/>', 28, true),
+};
+const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Favori" aria-pressed="${on}">${IC.star}</button>`;
+const setStar = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let tab = 'favs', feedCache = new Map(); // cache mémoire seulement (jamais de progression)
@@ -58,7 +68,7 @@ function fmtDur(d) {
 }
 const meta = f => [f.genre, f.count ? f.count + ' épisodes' : '', f.last ? 'dernier : ' + fmtDate(f.last) : ''].filter(Boolean).join(' · ');
 function showItem(f, star) {
-  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div>${star ? `<button class="star" data-star>${Sync.favs().some(x => x.feedUrl === f.feedUrl) ? '★' : '☆'}</button>` : ''}</div>`;
+  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div>${star ? starBtn(Sync.favs().some(x => x.feedUrl === f.feedUrl)) : ''}</div>`;
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
@@ -77,7 +87,7 @@ function renderFavs() {
     if (ev.target.closest('[data-star]')) { // retire (ou remet) le favori d'un clic ; l'élément disparaît à la prochaine ouverture de la liste
       toggleFav(l[i]);
       const on = Sync.favs().some(x => x.feedUrl === l[i].feedUrl);
-      ev.target.textContent = on ? '★' : '☆'; el.classList.toggle('removed', !on);
+      setStar(ev.target.closest('[data-star]'), on); el.classList.toggle('removed', !on);
       return;
     }
     openFeed(l[i]);
@@ -158,7 +168,7 @@ function renderSearch() {
   const bind = list => $('#res').querySelectorAll('.item').forEach((el, i) => {
     el.onclick = ev => {
       if (!list[i].feedUrl) return;
-      if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; }
+      if (ev.target.closest('[data-star]')) { toggleFav(list[i]); setStar(ev.target.closest('[data-star]'), Sync.favs().some(x => x.feedUrl === list[i].feedUrl)); }
       else openFeed(list[i], () => render());
     };
   });
@@ -228,8 +238,8 @@ async function openFeed(f, back) {
     const feed = feedCache.get(f.feedUrl) || await loadFeed(f.feedUrl);
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
-      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter les premières secondes</label><input id="skipin" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><p><button id="fav">${isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'}</button></p>` +
-      `<div class="filters"><select id="ord"><option value="desc">Plus récents d'abord</option><option value="asc">Plus anciens d'abord</option></select>
+      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter les premières secondes</label><input id="skipin" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button></p>` +
+      `<div class="filters"><select id="ord"><option value="desc">Récents d'abord</option><option value="asc">Anciens d'abord</option></select>
         <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><button id="chain" type="button"></button></div><div id="eps"></div>`;
     const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
     $('#chain').onclick = () => { chain = !chain; try { localStorage.setItem('chain', chain ? '1' : '0'); } catch {} showChain(); };
@@ -244,7 +254,7 @@ async function openFeed(f, back) {
       if (p.min) list = list.filter(x => !durSec(x.e.dur) || durSec(x.e.dur) >= p.min * 60); // durée inconnue : conservé
       list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
       curList = list.slice(0, 150).map(x => x.e);
-      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="star" data-more aria-label="Détails">⌄</button><button class="star">▶</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
+      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
     $('#ord').onchange = $('#mind').onchange = drawEps; drawEps();
     $('#skipin').oninput = e => {
@@ -252,7 +262,7 @@ async function openFeed(f, back) {
       if (v) m[feed.feedUrl] = v; else delete m[feed.feedUrl];
       try { localStorage.setItem('skip.v1', JSON.stringify(m)); } catch {}
     };
-    $('#fav').onclick = () => { toggleFav(feed); $('#fav').textContent = isFav() ? '★ Dans les favoris' : '☆ Ajouter aux favoris'; };
+    $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'; };
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
@@ -350,8 +360,8 @@ function play(ep, show, art, feedUrl) {
 const setPlaying = on => $('#player').classList.toggle('playing', on);
 ['playing', 'play'].forEach(ev => audio.addEventListener(ev, () => setPlaying(true)));
 ['pause', 'ended', 'emptied', 'error'].forEach(ev => audio.addEventListener(ev, () => setPlaying(false)));
-audio.addEventListener('play', () => { $('#pp').textContent = '❚❚'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'playing'); });
-audio.addEventListener('pause', () => { $('#pp').textContent = '▶'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); });
+audio.addEventListener('play', () => { $('#pp').innerHTML = IC.pause; navigator.mediaSession && (navigator.mediaSession.playbackState = 'playing'); });
+audio.addEventListener('pause', () => { $('#pp').innerHTML = IC.playBig; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); });
 const seekEl = $('#seek');
 let seeking = false;
 const clock = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(r).padStart(2, '0'); };
