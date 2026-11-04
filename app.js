@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.32';
+const APP_VERSION = '2026-11-04.33';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -528,7 +528,6 @@ showNight(); showViz();
     mode = m;
     pl.classList.toggle('mini', m === 'mini'); pl.classList.toggle('full', m === 'full');
     document.body.classList.toggle('noscroll', m === 'full');
-    btn.textContent = m === 'mini' ? '⌃' : '⌄';
     btn.setAttribute('aria-label', m === 'normal' ? 'Réduire le lecteur' : m === 'mini' ? 'Agrandir le lecteur' : 'Fermer le plein écran');
     if (m !== 'full') { try { localStorage.setItem('pmode', m); } catch {} }
     m === 'full' ? startViz() : stopViz();
