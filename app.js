@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.6';
+const APP_VERSION = '2026-11-04.7';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -181,10 +181,20 @@ function play(ep, show, art) {
 }
 audio.addEventListener('play', () => { $('#pp').textContent = '❚❚'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'playing'); });
 audio.addEventListener('pause', () => { $('#pp').textContent = '▶'; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); applyPendingReload(); });
-audio.addEventListener('loadedmetadata', () => { $('#seek').max = Math.floor(audio.duration) || 0; });
-audio.addEventListener('timeupdate', () => { if (!seeking) $('#seek').value = Math.floor(audio.currentTime); checkSleep(); });
+const seekEl = $('#seek');
 let seeking = false;
-$('#seek').oninput = () => { seeking = true; }; $('#seek').onchange = e => { audio.currentTime = +e.target.value; seeking = false; };
+function syncSeek() {
+  const d = audio.duration;
+  if (!isFinite(d) || d <= 0) { seekEl.max = 0; seekEl.value = 0; return; }
+  seekEl.max = d;
+  if (!seeking) seekEl.value = Math.min(audio.currentTime, d);
+}
+function resetSeek() { seeking = false; seekEl.max = 0; seekEl.value = 0; }
+['loadstart', 'emptied'].forEach(ev => audio.addEventListener(ev, resetSeek));
+['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => audio.addEventListener(ev, syncSeek));
+audio.addEventListener('timeupdate', checkSleep);
+seekEl.oninput = () => { seeking = true; };
+seekEl.onchange = e => { audio.currentTime = +e.target.value; seeking = false; };
 const toggle = () => audio.paused ? audio.play() : audio.pause();
 const skip = d => { audio.currentTime = Math.max(0, audio.currentTime + d); };
 $('#pp').onclick = toggle; $('#rw').onclick = () => skip(-15); $('#ff').onclick = () => skip(30);
