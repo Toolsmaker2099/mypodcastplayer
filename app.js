@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.15';
+const APP_VERSION = '2026-11-04.16';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -76,12 +76,11 @@ function renderFavs() {
 // ---------- Podcast Index (clé + secret saisis dans Réglages, stockés sur l'appareil seulement) ----------
 const piCfg = () => { try { return JSON.parse(localStorage.getItem('pi.cfg')) || {}; } catch { return {}; } };
 const piReady = () => { const c = piCfg(); return !!(c.key && c.secret); };
-async function piSearch(q) {
+async function piGet(path) {
   const c = piCfg(), date = String(Math.floor(Date.now() / 1000));
   const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(c.key + c.secret + date));
   const auth = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
   const headers = { 'X-Auth-Date': date, 'X-Auth-Key': c.key, Authorization: auth };
-  const path = `search/byterm?max=100&q=${encodeURIComponent(q)}`;
   let r;
   try { r = await fetch('https://api.podcastindex.org/api/1.0/' + path, { headers }); }
   catch (e) { // CORS/réseau : repli par le proxy du worker, s'il est configuré
@@ -93,8 +92,12 @@ async function piSearch(q) {
   if (!r.ok) throw new Error('Podcast Index ' + r.status);
   return (await r.json()).feeds || [];
 }
+const piSearch = q => piGet(`search/byterm?max=100&q=${encodeURIComponent(q)}`);
+let piCats = null;
+const piCategories = async () => piCats || (piCats = (await piGet('categories/list')).map(c => c.name).sort((x, y) => x.localeCompare(y, 'fr')));
+const piPrefs = () => { try { return { mode: 'search', lang: 'fr', cat: '', sort: 'rel', ...JSON.parse(localStorage.getItem('pi.prefs')) }; } catch { return { mode: 'search', lang: 'fr', cat: '', sort: 'rel' }; } };
 const piMap = x => ({ feedUrl: x.url, title: x.title, image: x.artwork || x.image, author: x.author || x.ownerName,
-  genre: Object.values(x.categories || {})[0] || '', count: x.episodeCount, last: x.newestItemPubdate ? new Date(x.newestItemPubdate * 1000).toISOString() : '', desc: (x.description || '').replace(/<[^>]*>/g, '').slice(0, 300) });
+  genre: Object.values(x.categories || {})[0] || '', count: x.episodeCount, last: (x.newestItemPubdate || x.newestItemPublishTime) ? new Date((x.newestItemPubdate || x.newestItemPublishTime) * 1000).toISOString() : '', desc: (x.description || '').replace(/<[^>]*>/g, '').slice(0, 300) });
 let searchSrc = localStorage.getItem('src') || '';
 const PRODUCERS = [
   ['France Inter', /france inter/i], ['France Culture', /france culture/i], ['franceinfo', /franceinfo|france info/i],
@@ -106,19 +109,36 @@ function renderSearch() {
   if (!searchSrc) searchSrc = piReady() ? 'pi' : 'apple';
   if (searchSrc === 'pi' && !piReady()) searchSrc = 'apple';
   view.innerHTML = `<div class="chips src"><button type="button" class="chip${searchSrc === 'apple' ? ' on' : ''}" data-s="apple">Apple</button><button type="button" class="chip${searchSrc === 'pi' ? ' on' : ''}" data-s="pi">Podcast Index${piReady() ? '' : ' (clé requise)'}</button></div>
+    ${searchSrc === 'pi' ? `<div class="filters pi"><select id="pimode"><option value="search">Recherche</option><option value="trending">Tendances</option><option value="recent">Nouveautés</option></select>
+      <select id="pilang"><option value="fr">Français</option><option value="en">Anglais</option><option value="">Toutes langues</option></select>
+      <select id="picat"><option value="">Toutes catégories</option></select>
+      <select id="pisort"><option value="rel">Pertinence / classement</option><option value="new">Plus récents</option><option value="eps">Plus d'épisodes</option><option value="az">Titre A–Z</option></select></div>` : ''}
     <form id="sf" class="row"><input type="search" id="q" placeholder="Rechercher un podcast…" value="${esc(searchQ)}"><button>OK</button></form>
     <div class="chips">${PRODUCERS.map(([n]) => `<button type="button" class="chip${n === searchProd ? ' on' : ''}" data-p="${esc(n)}">${esc(n)}</button>`).join('')}</div><div id="res"></div>`;
   const run = async () => {
     const q = $('#q').value.trim(); searchQ = q;
     const prod = PRODUCERS.find(p => p[0] === searchProd);
-    if (!q && !prod) { $('#res').innerHTML = ''; return; }
+    if (!q && !prod && !(searchSrc === 'pi' && piPrefs().mode !== 'search')) { $('#res').innerHTML = ''; return; }
     $('#res').innerHTML = '<p class="dim">Recherche…</p>';
     try {
       if (searchSrc === 'pi') {
-        const term = q || prod[0];
-        let feeds = (await piSearch(term)).filter(x => x.url && !x.dead);
+        const p = piPrefs();
+        let feeds;
+        if (p.mode === 'trending') feeds = await piGet(`podcasts/trending?max=100&since=${Math.floor(Date.now() / 1000) - 14 * 86400}${p.lang ? '&lang=' + p.lang : ''}${p.cat ? '&cat=' + encodeURIComponent(p.cat) : ''}`);
+        else if (p.mode === 'recent') feeds = await piGet(`recent/feeds?max=100${p.lang ? '&lang=' + p.lang : ''}${p.cat ? '&cat=' + encodeURIComponent(p.cat) : ''}`);
+        else {
+          feeds = await piSearch(q || (prod && prod[0]) || '');
+          if (p.lang) feeds = feeds.filter(x => (x.language || '').toLowerCase().startsWith(p.lang));
+          if (p.cat) feeds = feeds.filter(x => Object.values(x.categories || {}).some(c => c.toLowerCase() === p.cat.toLowerCase()));
+        }
+        feeds = feeds.filter(x => x.url && !x.dead);
         if (prod) feeds = feeds.filter(x => prod[1].test(x.author || '') || prod[1].test(x.ownerName || '') || prod[1].test(x.title || ''));
-        const list = feeds.slice(0, 50).map(piMap);
+        if (q && p.mode !== 'search') { const ql = q.toLowerCase(); feeds = feeds.filter(x => ((x.title || '') + ' ' + (x.author || '') + ' ' + (x.description || '')).toLowerCase().includes(ql)); }
+        const lastOf = x => x.newestItemPubdate || x.newestItemPublishTime || 0;
+        if (p.sort === 'new') feeds.sort((x, y) => lastOf(y) - lastOf(x));
+        else if (p.sort === 'eps') feeds.sort((x, y) => (y.episodeCount || 0) - (x.episodeCount || 0));
+        else if (p.sort === 'az') feeds.sort((x, y) => (x.title || '').localeCompare(y.title || '', 'fr'));
+        const list = feeds.slice(0, 60).map(piMap);
         $('#res').innerHTML = list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat.</p>';
         $('#res').querySelectorAll('.item').forEach((el, i) => {
           el.onclick = ev => { if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; } else openFeed(list[i], () => render()); };
@@ -144,12 +164,19 @@ function renderSearch() {
     renderSearch();
   });
   $('#sf').onsubmit = e => { e.preventDefault(); run(); };
-  view.querySelectorAll('.chip').forEach(b => b.onclick = () => {
+  view.querySelectorAll('.chip[data-p]').forEach(b => b.onclick = () => {
     searchProd = searchProd === b.dataset.p ? '' : b.dataset.p;
-    view.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x.dataset.p === searchProd));
+    view.querySelectorAll('.chip[data-p]').forEach(x => x.classList.toggle('on', x.dataset.p === searchProd));
     run();
   });
-  if (searchQ || searchProd) run();
+  if (searchSrc === 'pi') {
+    const p = piPrefs();
+    $('#pimode').value = p.mode; $('#pilang').value = p.lang; $('#pisort').value = p.sort;
+    const save = () => { try { localStorage.setItem('pi.prefs', JSON.stringify({ mode: $('#pimode').value, lang: $('#pilang').value, cat: $('#picat').value, sort: $('#pisort').value })); } catch {} run(); };
+    ['pimode', 'pilang', 'picat', 'pisort'].forEach(id => $('#' + id).onchange = save);
+    piCategories().then(cs => { $('#picat').innerHTML = '<option value="">Toutes catégories</option>' + cs.map(c => `<option>${esc(c)}</option>`).join(''); $('#picat').value = p.cat; }).catch(() => {});
+  }
+  if (searchQ || searchProd || (searchSrc === 'pi' && piPrefs().mode !== 'search')) run();
 }
 async function openFeed(f, back) {
   setTitle(f.title, back || (() => render()));

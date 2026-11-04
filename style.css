@@ -68,3 +68,4 @@ label{display:block;margin-top:18px;color:var(--dim);font-size:13px;text-transfo
 #player.mini .ctl button:not(#pp),#player.mini .times,#player.mini #seek{display:none}
 #player.mini #pp{width:46px;height:46px;font-size:16px;order:2}
 #player.mini::after{content:'';position:absolute;left:18px;right:18px;bottom:4px;height:3px;border-radius:3px;background:linear-gradient(to right,var(--acc) calc(var(--p,0)*100%),rgba(255,255,255,.14) 0)}
+.filters.pi{flex-wrap:wrap}.filters.pi select{flex:1 1 45%}.chips.src{padding-bottom:0}
