@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.73';
+const APP_VERSION = '2026-11-04.74';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -83,8 +83,8 @@ function fmtDur(d) {
   return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
 }
 const meta = f => [f.genre, f.count ? f.count + ' épisodes' : '', f.last ? 'dernier : ' + fmtDate(f.last) : ''].filter(Boolean).join(' · ');
-function showItem(f, star) {
-  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div>${star ? starBtn(Sync.favs().some(x => x.feedUrl === f.feedUrl)) : ''}</div>`;
+function showItem(f, star, lst = !!f.feedUrl) {
+  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div><div class="acts">${lst ? `<button class="ibtn lbtn" data-listadd aria-label="Ajouter à une liste" title="Ajouter à une liste">${IC.list}</button>` : ''}${star ? starBtn(Sync.favs().some(x => x.feedUrl === f.feedUrl)) : ''}</div></div>`;
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
@@ -125,7 +125,7 @@ function renderPodcastFavs(head) {
   const chips = `<div class="tglrow lchips"><button type="button" class="tgl${cur === 'all' ? ' on' : ''}" data-l="all">Coups de cœur</button>${d.lists.map(x => `<button type="button" class="tgl${cur === x.id ? ' on' : ''}" data-l="${x.id}">${esc(x.name)}</button>`).join('')}<button type="button" class="tgl" data-l="new">+ Nouvelle liste</button></div>` +
     `<div class="tglrow lmanage">${cur !== 'all' ? '<button type="button" class="tgl" data-l="rename">Renommer</button>' : ''}${l.length ? '<button type="button" class="tgl" data-l="share">Partager</button>' : ''}${cur !== 'all' ? '<button type="button" class="tgl" data-l="delete">Supprimer la liste</button>' : ''}</div>`;
   const empty = cur === 'all' ? '<p class="dim">Aucun coup de cœur. Utilise l\'onglet Ajouter ou la recherche.</p>' : '<p class="dim">Cette liste est vide. Ouvre un podcast des favoris et touche « Listes » pour l\'y ajouter.</p>';
-  view.innerHTML = head + chips + (l.length ? l.map(f => cur === 'all' ? showItem(f, true) : showItem(f, false).replace(/<\/div>$/, '<button class="ibtn" data-unlist aria-label="Retirer de la liste">✕</button></div>')).join('') : empty);
+  view.innerHTML = head + chips + (l.length ? l.map(f => cur === 'all' ? showItem(f, true) : showItem(f, false).replace(/<\/div><\/div>$/, '</div><button class="ibtn" data-unlist aria-label="Retirer de la liste" title="Retirer de la liste">✕</button></div>')).join('') : empty);
   bindFavSeg();
   view.querySelectorAll('[data-l]').forEach(b => b.onclick = async () => {
     const k = b.dataset.l;
@@ -136,6 +136,7 @@ function renderPodcastFavs(head) {
     localStorage.setItem('favlist', k); renderFavs();
   });
   view.querySelectorAll('.item').forEach((el, i) => el.onclick = ev => {
+    if (ev.target.closest('[data-listadd]')) { listsSheet(l[i], () => { if (cur !== 'all') renderFavs(); }); return; }
     if (ev.target.closest('[data-unlist]')) { // retire seulement de cette liste
       const dd = listsData(), u = l[i].feedUrl; dd.members[u] = (dd.members[u] || []).filter(x => x !== cur); if (!dd.members[u].length) { delete dd.members[u]; delete dd.pods[u]; } saveLists(dd);
       el.classList.add('removed'); return;
@@ -312,6 +313,7 @@ function renderSearch() {
   const bind = list => $('#res').querySelectorAll('.item').forEach((el, i) => {
     el.onclick = ev => {
       if (!list[i].feedUrl) return;
+      if (ev.target.closest('[data-listadd]')) { listsSheet(list[i]); return; }
       if (ev.target.closest('[data-star]')) { toggleFav(list[i]); setStar(ev.target.closest('[data-star]'), Sync.favs().some(x => x.feedUrl === list[i].feedUrl)); }
       else openFeed(list[i], () => render());
     };

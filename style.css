@@ -272,3 +272,4 @@ h1{min-width:0;flex:0 1 auto}#back{flex:none}
 .lrow input{width:20px;height:20px;accent-color:#8fa2ff;flex:none}
 .sheet .row input{flex:1;min-width:0}
 #favseg{margin:0 0 12px}.toast{max-width:90vw;text-align:center}
+.acts{display:flex;flex-direction:column;gap:8px;align-items:center;flex:none}.item .acts .ibtn{margin:0}
