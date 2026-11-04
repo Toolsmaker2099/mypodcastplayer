@@ -21,7 +21,7 @@ jobs:
       - name: Préparer le site
         run: |
           mkdir _site
-          cp -r index.html app.js sync.js share.js vendor style.css sw.js manifest.webmanifest icons _site/
+          cp -r index.html app.js sync.js extra.js share.js vendor style.css sw.js manifest.webmanifest icons _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

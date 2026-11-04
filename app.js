@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.80';
+const APP_VERSION = '2026-11-04.81';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -48,9 +48,12 @@ async function loadFeed(feedUrl) {
   const img = doc.querySelector('channel > image > url')?.textContent || doc.getElementsByTagName('itunes:image')[0]?.getAttribute('href') || '';
   const ns = (n, t) => n.getElementsByTagName(t)[0]?.textContent?.trim() || '';
   const plain = h => { const d = new DOMParser().parseFromString(h || '', 'text/html'); return (d.body.textContent || '').replace(/\s+/g, ' ').trim(); };
+  const lines = h => plain((h || '').replace(/<br\s*\/?>|<\/p>|<\/li>|<\/div>/gi, '\n$&')).length ? new DOMParser().parseFromString((h || '').replace(/<br\s*\/?>|<\/p>|<\/li>|<\/div>/gi, m => m + '\n'), 'text/html').body.textContent.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim() : '';
   const episodes = [...doc.querySelectorAll('item')].map(it => ({
     title: txt(it, 'title'), date: txt(it, 'pubDate'),
     desc: plain(ns(it, 'content:encoded') || txt(it, 'description') || ns(it, 'itunes:summary')).slice(0, 700),
+    notes: lines(ns(it, 'content:encoded') || txt(it, 'description') || ns(it, 'itunes:summary')).slice(0, 6000),
+    chapUrl: it.getElementsByTagName('podcast:chapters')[0]?.getAttribute('url') || '',
     dur: ns(it, 'itunes:duration'),
     url: it.querySelector('enclosure')?.getAttribute('url') || '',
     image: it.getElementsByTagName('itunes:image')[0]?.getAttribute('href') || '',
@@ -85,7 +88,7 @@ function fmtDur(d) {
 const meta = f => [f.genre, f.count ? f.count + ' épisodes' : '', f.last ? 'dernier : ' + fmtDate(f.last) : ''].filter(Boolean).join(' · ');
 function showItem(f, star, lst = !!f.feedUrl) {
   const ld = listsData(), tags = (ld.members[f.feedUrl] || []).map(id => (ld.lists.find(x => x.id === id) || {}).name).filter(Boolean);
-  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${tags.length ? `<div class="ltags">${tags.map(t => `<span class="ltag">${esc(t)}</span>`).join('')}</div>` : ''}${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div><div class="acts">${lst ? `<button class="ibtn lbtn" data-listadd aria-label="Ajouter à une liste" title="Ajouter à une liste">${IC.list}</button>` : ''}${star ? starBtn(Sync.favs().some(x => x.feedUrl === f.feedUrl)) : ''}</div></div>`;
+  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${tags.length || newBadge(f) ? `<div class="ltags">${newBadge(f)}${tags.map(t => `<span class="ltag">${esc(t)}</span>`).join('')}</div>` : ''}${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div><div class="acts">${lst ? `<button class="ibtn lbtn" data-listadd aria-label="Ajouter à une liste" title="Ajouter à une liste">${IC.list}</button>` : ''}${star ? starBtn(Sync.favs().some(x => x.feedUrl === f.feedUrl)) : ''}</div></div>`;
 }
 function refreshTags(u) { // met à jour les pastilles de listes des cartes visibles pour ce podcast
   const ld = listsData(), names = (ld.members[u] || []).map(id => (ld.lists.find(x => x.id === id) || {}).name).filter(Boolean);
@@ -123,8 +126,11 @@ function askName(title, value = '') {
   }));
 }
 function renderFavs() {
-  const ft = localStorage.getItem('favtab') === 'pl' ? 'pl' : 'pod';
-  const head = seg('favseg', [['pod', 'Podcasts'], ['pl', 'Playlists']], ft);
+  const ft = ['pl', 'q', 'dl', 'new'].includes(localStorage.getItem('favtab')) ? localStorage.getItem('favtab') : 'pod', nn = newTotal(), qn = qGet().length;
+  const head = `<div class="scrollx">${seg('favseg', [['pod', 'Podcasts'], ['new', 'Nouveautés' + (nn ? ' · ' + nn : '')], ['q', 'À écouter' + (qn ? ' · ' + qn : '')], ['pl', 'Playlists'], ['dl', 'Hors ligne']], ft)}</div>`;
+  if (ft === 'q') { renderQueue(head); return; }
+  if (ft === 'new') { renderNew(head); return; }
+  if (ft === 'dl') { renderDownloads(head); return; }
   if (ft === 'pl') { renderPlaylists(); view.insertAdjacentHTML('afterbegin', head); bindFavSeg(); return; }
   renderPodcastFavs(head);
 }
@@ -421,8 +427,9 @@ async function openFeed(f, back) {
     const feed = feedCache.get(f.feedUrl) || await loadFeed(f.feedUrl);
     if (!f.title) setTitle(feed.title, back || (() => render()));
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
+    const seenAt = seenMap()[feed.feedUrl]; if (isFav()) { markSeen(feed); refreshNewBadge(); }
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
-      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button> <button id="lists" class="favpill">${IC.list}<span>Listes</span></button></p>` +
+      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="dlauto">Télécharger les derniers épisodes</label><select id="dlauto"><option value="0">Non</option>${[1, 2, 3, 5, 10].map(n => `<option value="${n}">${n} dernier${n > 1 ? 's' : ''}</option>`).join('')}</select></div><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button> <button id="lists" class="favpill">${IC.list}<span>Listes</span></button></p>` +
       `<div class="filters fgrid"><select id="ord"><option value="desc">Récents</option><option value="asc">Anciens</option></select>
         <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select></div><div class="tglrow"><button id="chain" type="button" class="tgl"></button><button id="track" type="button" class="tgl"></button><button id="selbtn" type="button" class="tgl" hidden></button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="pl">+ Playlist</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
     const tgl = (id, ic, label, on) => { const b = $('#' + id); b.innerHTML = labeled(ic, label); b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', !!on); };
@@ -456,7 +463,7 @@ async function openFeed(f, back) {
       if (tr && p.read === 'read') list = list.filter(x => pg(x.e).r);
       list.sort((x, y) => p.order === 'asc' ? x.t - y.t || y.i - x.i : y.t - x.t || x.i - y.i);
       curList = list.slice(0, 150).map(x => x.e); curListIdx = list.slice(0, 150).map(x => x.i);
-      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr ? (pg(e).r ? ' isread' : ' unr') : ''}${selMode ? ' selmode' : ''}${opened.has(String(i)) ? ' open' : ''}${selMode && sel.has(i) ? ' sel' : ''}" data-i="${i}">${selMode ? '<span class="chk" aria-hidden="true">✓</span>' : ''}<div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<span class="rdpill">✓ Lu</span>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div>${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn" data-pladd aria-label="Ajouter à une playlist">＋</button><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
+      $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep${tr ? (pg(e).r ? ' isread' : ' unr') : ''}${selMode ? ' selmode' : ''}${opened.has(String(i)) ? ' open' : ''}${selMode && sel.has(i) ? ' sel' : ''}" data-i="${i}">${selMode ? '<span class="chk" aria-hidden="true">✓</span>' : ''}<div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${seenAt != null && epTime(e) > seenAt ? '<span class="newpill">Nouveau</span>' : ''}${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<span class="rdpill">✓ Lu</span>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}<div class="epacts"><button type="button" class="abtn2" data-q>☰＋ À la suite</button><button type="button" class="abtn2" data-dl data-u="${esc(e.url)}">${dlLabel(e.url)}</button><button type="button" class="abtn2" data-info>Chapitres et notes</button></div></div>${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn" data-pladd aria-label="Ajouter à une playlist">＋</button><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
     $('#ord').onchange = $('#mind').onchange = $('#rd').onchange = drawEps; showTrack(); drawEps();
     epRedraw = () => { if ($('#eps') && $('#ord') && $('#ord').isConnected) { try { drawEps(); } catch {} } };
@@ -467,6 +474,8 @@ async function openFeed(f, back) {
       if (feed.feedUrl === curFeedUrl) { curSkip = skipFor(curFeedUrl); curSkipEnd = skipEndFor(curFeedUrl); earlyDone = false; armEnd(); }
     }; };
     bindSkip('skipin', 'skip.v1'); bindSkip('skipend', 'skipend.v1');
+    $('#dlauto').value = String(xget('dl.auto.v1', {})[feed.feedUrl] || 0);
+    $('#dlauto').onchange = () => { const m = xget('dl.auto.v1', {}), n = +$('#dlauto').value; if (n) m[feed.feedUrl] = n; else delete m[feed.feedUrl]; xset('dl.auto.v1', m); if (n) { toast('Téléchargement automatique activé'); dlAutoRun(); } };
     $('#share').onclick = () => withShare(() => shareFeed(feed));
     $('#lists').onclick = () => listsSheet(feed, () => { $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'; }, $('#lists'));
     $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'; };
@@ -474,6 +483,9 @@ async function openFeed(f, back) {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
       if (ev.target.closest('[data-pladd]')) { playlistPicker([epSnap(feed.episodes[el.dataset.i], feed)], ev.target.closest('[data-pladd]')); return; }
+      if (ev.target.closest('[data-q]')) { qAdd(epSnap(feed.episodes[el.dataset.i], feed)); return; }
+      if (ev.target.closest('[data-dl]')) { dlToggle(epSnap(feed.episodes[el.dataset.i], feed)); return; }
+      if (ev.target.closest('[data-info]')) { epInfo(feed.episodes[el.dataset.i], feed.title, feed.image, feed.feedUrl); return; }
       if (ev.target.closest('[data-read]')) { const e = feed.episodes[el.dataset.i], g = getProg(feed.feedUrl, e) || {}; setProg(feed.feedUrl, e, g.r ? { r: 0, t: 0 } : { r: 1, t: 0 }); drawEps(); return; }
       if (selMode) { const i = +el.dataset.i; sel.has(i) ? sel.delete(i) : sel.add(i); el.classList.toggle('sel', sel.has(i)); showSel(); return; }
       const ep = feed.episodes[el.dataset.i];
@@ -495,8 +507,10 @@ function renderAdd() {
   view.innerHTML =
     card(SVG_SEARCH, 'Rechercher un podcast', 'Dans les annuaires Apple Podcasts et Podcast Index : par mot-clé, catégorie ou producteur.', '<button type="button" id="a-search" class="abtn">Ouvrir la recherche</button>') +
     card(IC.scan, 'Scanner un QR code', 'Un podcast partagé par un autre utilisateur de l\'app.', '<button type="button" id="a-scan" class="abtn">Scanner</button>') +
+    card(IC.link, 'Importer un fichier OPML', 'Reprends tes abonnements depuis une autre application de podcasts (fichier .opml).', '<label class="abtn filebtn">Choisir un fichier<input type="file" id="a-opml" accept=".opml,.xml,text/xml,text/x-opml" hidden></label><p id="a-omsg" class="dim"></p>') +
     card(IC.link, 'Adresse de flux RSS ou lien', 'Colle l\'adresse d\'un flux RSS ou un lien de partage reçu par message.', '<form id="a-form" class="row"><input id="a-url" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="https://…"><button class="abtn">Ouvrir</button></form><p id="a-msg" class="dim"></p>');
   $('#a-search').onclick = () => { tab = 'search'; render(); };
+  $('#a-opml').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const n = await opmlImport(f); $('#a-omsg').textContent = n ? `${n} podcast${n > 1 ? 's ajoutés' : ' ajouté'} à tes favoris.` : 'Aucun nouveau podcast trouvé dans ce fichier.'; } catch { $('#a-omsg').textContent = 'Fichier illisible.'; } };
   $('#a-scan').onclick = () => withShare(() => scanQR());
   $('#a-form').onsubmit = e => {
     e.preventDefault(); const f = feedFromTextSafe($('#a-url').value);
@@ -508,7 +522,8 @@ const feedFromTextSafe = t => { try { return typeof feedFromText === 'function' 
 function renderSettings() {
   const c = Sync.cfg();
   view.innerHTML = `<label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
-  <label>Application</label><p class="dim">Version ${APP_VERSION}</p>${isInstalled() ? '<p class="dim">✓ Application installée sur cet appareil</p>' : '<p><button id="inst-set" type="button">Installer l\'app</button></p>'}<p><button id="upd">Forcer la mise à jour</button></p>`;
+  <label>Application</label><p class="dim">Version ${APP_VERSION}</p>${isInstalled() ? '<p class="dim">✓ Application installée sur cet appareil</p>' : '<p><button id="inst-set" type="button">Installer l\'app</button></p>'}<p><button id="upd">Forcer la mise à jour</button></p><label>Mes données</label><p><button id="opml-x" type="button">Exporter mes favoris (OPML)</button></p>`;
+  $('#opml-x').onclick = opmlExport;
   if ($('#inst-set')) { $('#inst-set').onclick = installApp; refreshInstallUi(); }
   $('#upd').onclick = async () => {
     try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); (await caches.keys()).forEach(k => caches.delete(k)); } catch {}
@@ -559,7 +574,7 @@ async function withShare(fn) { // charge le module de partage s'il manque (ancie
   } catch (e) { alert('Partage indisponible : ' + (e && e.message)); }
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2200); }
-let curEp = null, lastSave = 0, epRedraw = () => {};
+let curEp = null, lastSave = 0, epRedraw = () => {}, playStartOverride = null;
 function saveProg(force) {
   if (!curEp || !trackOn(curFeedUrl)) return;
   const d = effDur(), t = audio.currentTime;
@@ -575,29 +590,31 @@ onAudio('ended', markDone);
 let chain = localStorage.getItem('chain') === '1', curList = [], queue = [], qi = -1, qCtx = null;
 function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; const q = queue[i]; play(q, q._show ?? qCtx.show, q._art ?? qCtx.art, q._feed ?? qCtx.feedUrl); return true; }
 const advance = () => chain || !!(qCtx && qCtx.auto); // une playlist s'enchaîne toujours
-onAudio('ended', () => { if (advance()) playAt(qi + 1); });
+onAudio('ended', () => { if (sleepEpDone()) return; if (qPlayNext()) return; if (advance()) playAt(qi + 1); });
 // Secondes à sauter par podcast (une décimale, virgule ou point acceptés) : réglages fixes, pas une progression de lecture.
 const num = s => { const v = parseFloat(String(s).replace(',', '.')); return isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : 0; };
 const numMap = key => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } };
 const skipFor = u => +numMap('skip.v1')[u] || 0;
 const skipEndFor = u => +numMap('skipend.v1')[u] || 0;
-const syncNav = () => { $('#prev').disabled = qi <= 0; $('#next').disabled = qi < 0 || qi >= queue.length - 1; };
-$('#prev').onclick = () => playAt(qi - 1); $('#next').onclick = () => playAt(qi + 1);
+const syncNav = () => { $('#prev').disabled = qi <= 0; $('#next').disabled = !qGet().length && (qi < 0 || qi >= queue.length - 1); };
+$('#prev').onclick = () => playAt(qi - 1); $('#next').onclick = () => qPlayNext() || playAt(qi + 1);
 const corsBad = new Set(), hostOf = u => { try { return new URL(u).host; } catch { return u; } };
 const note = t => { $('#np-show').textContent = t || curShow; };
 let curShow = '', curSkip = 0, curSkipEnd = 0, curFeedUrl = '', earlyDone = false;
 function play(ep, show, art, feedUrl) {
   curShow = show;
   syncNav();
-  const plain = corsBad.has(hostOf(ep.url));
+  const plain = !dlObj.has(ep.url) && corsBad.has(hostOf(ep.url));
   useEl(plain ? el2 : el1);
   audio.crossOrigin = plain ? null : 'anonymous';
-  audio.src = ep.url; note(plain && nightOn ? 'Mode nuit indisponible pour ce podcast.' : '');
+  el1.defaultPlaybackRate = el2.defaultPlaybackRate = rateFor(feedUrl);
+  audio.src = dlObj.get(ep.url) || ep.url; note(plain && nightOn ? 'Mode nuit indisponible pour ce podcast.' : '');
   audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
   curFeedUrl = feedUrl; curSkipEnd = skipEndFor(feedUrl); earlyDone = false; curDurHint = durSec(ep.dur);
   const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast
   curEp = ep; lastSave = 0;
-  const pr = trackOn(feedUrl) ? getProg(feedUrl, ep) : null, start = pr && !pr.r && pr.t > 5 ? pr.t : skip; // reprise si le suivi est activé
+  const pr = trackOn(feedUrl) ? getProg(feedUrl, ep) : null, start = playStartOverride != null ? playStartOverride : pr && !pr.r && pr.t > 5 ? pr.t : skip; playStartOverride = null;
+  curChaps = []; getChapters(ep).then(c => { if (curEp === ep) curChaps = c; }); chapTick(); // reprise si le suivi est activé
   if (start > 0) audio.addEventListener('canplay', () => { if (audio.duration > start) audio.currentTime = start; }, { once: true });
   const cover = (ep.image || art || '').replace(/\d+x\d+bb/, '600x600bb');
   $('#np-art').src = cover; $('#np-art').style.visibility = cover ? 'visible' : 'hidden';
@@ -630,14 +647,16 @@ function syncSeek() {
 function resetSeek() { seeking = false; setRatio(0); syncTimes(); }
 ['loadstart', 'emptied'].forEach(ev => onAudio(ev, resetSeek));
 ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => onAudio(ev, syncSeek));
-onAudio('timeupdate', checkSleep);
+onAudio('timeupdate', checkSleep); onAudio('timeupdate', chapTick);
 // Sauter les dernières secondes : on termine l'épisode (et on enchaîne si activé) quand il ne reste que ce délai.
 // Minuterie précise (≈ 0,1 s) plutôt que les événements « timeupdate » (≈ 0,25 s) ; la durée du flux RSS sert de repli si le navigateur ne la connaît pas.
 let endT = 0, curDurHint = 0;
 const effDur = () => (isFinite(audio.duration) && audio.duration > 0) ? audio.duration : curDurHint;
 function fireEnd() {
   earlyDone = true; clearTimeout(endT); markDone();
-  if (advance() && queue.length && qi < queue.length - 1) playAt(qi + 1);
+  if (sleepEpDone()) audio.pause();
+  else if (qPlayNext()) { /* file « À écouter » */ }
+  else if (advance() && queue.length && qi < queue.length - 1) playAt(qi + 1);
   else { audio.pause(); const d = audio.duration; if (isFinite(d)) { try { audio.currentTime = d; } catch {} } }
 }
 function armEnd() {
@@ -666,22 +685,27 @@ if ('mediaSession' in navigator) {
   h('play', () => audio.play()); h('pause', () => audio.pause());
   h('seekbackward', () => skip(-15)); h('seekforward', () => skip(30));
   h('stop', () => audio.pause());
-  h('nexttrack', () => playAt(qi + 1)); h('previoustrack', () => playAt(qi - 1));
+  h('nexttrack', () => qPlayNext() || playAt(qi + 1)); h('previoustrack', () => playAt(qi - 1));
 }
 
 // ---------- Minuterie d'arrêt (désactivée par défaut, non persistée) ----------
-let sleepEnd = 0, sleepT = null;
-const OPTS = [0, 15, 30, 45, 60, 90];
-$('#sleep').onclick = () => {
-  const cur = sleepEnd ? Math.round((sleepEnd - Date.now()) / 60000) : 0;
-  const next = OPTS.find(m => m > cur) ?? 0; // cycle : Off → 15 → … → 90 → Off
-  setSleep(next);
-};
-function setSleep(min) {
-  clearTimeout(sleepT); sleepEnd = min ? Date.now() + min * 60000 : 0;
-  $('#sleep').innerHTML = labeled(IC.timer, min ? `${min} min` : 'Minuteur'); $('#sleep').classList.toggle('on', !!min);
-  if (min) sleepT = setTimeout(checkSleep, min * 60000 + 100);
+let sleepEnd = 0, sleepT = null, sleepEp = false, sleepTick = 0;
+$('#sleep').onclick = () => sleepMenu($('#sleep'));
+function setSleep(min) { // min : minutes, 'ep' (fin de l'épisode) ou 0 (désactivé)
+  clearTimeout(sleepT); clearInterval(sleepTick); sleepEp = min === 'ep'; sleepEnd = typeof min === 'number' && min ? Date.now() + min * 60000 : 0;
+  el1.volume = el2.volume = 1;
+  $('#sleep').innerHTML = labeled(IC.timer, sleepEp ? 'Fin ép.' : min ? `${min} min` : 'Minuteur'); $('#sleep').classList.toggle('on', !!(sleepEnd || sleepEp));
+  if (sleepEnd) sleepT = setTimeout(checkSleep, min * 60000 + 100);
+  if (sleepEnd || sleepEp) sleepTick = setInterval(sleepStep, 500);
 }
+function sleepStep() { // fondu progressif du volume avant l'arrêt
+  if (xget('sleep.fade', true) === false) return;
+  let rem = Infinity;
+  if (sleepEnd) rem = (sleepEnd - Date.now()) / 1000;
+  else if (sleepEp) { const d = effDur(); if (d) rem = (d - (curSkipEnd || 0) - audio.currentTime) / (audio.playbackRate || 1); }
+  if (rem < SLEEP_FADE) { const v = Math.max(0.02, Math.min(1, rem / SLEEP_FADE)) ** 2; el1.volume = el2.volume = v; } else if (audio.volume < 1) el1.volume = el2.volume = 1;
+}
+function sleepEpDone() { if (!sleepEp) return false; setSleep(0); return true; }
 function checkSleep() {
   if (sleepEnd && Date.now() >= sleepEnd) { audio.pause(); setSleep(0); }
 }
@@ -695,7 +719,8 @@ async function refreshFavs() {
   const res = await Promise.allSettled(Sync.favs().map(f => loadFeed(f.feedUrl)));
   const upd = Sync.favs().map((f, i) => { const v = res[i].value; return v ? { ...f, title: v.title, image: v.image || f.image, author: v.author, genre: v.genre, count: v.count, last: v.last, desc: v.desc.slice(0, 300) } : f; });
   if (JSON.stringify(upd) !== JSON.stringify(Sync.favs())) localStorage.setItem('favs.v1', JSON.stringify(upd)); // maj locale des infos, sans resynchroniser
-  if (tab === 'favs') renderFavs();
+  seenInit(); refreshNewBadge(); dlAutoRun();
+  if (tab === 'favs' && $('#back').hidden) renderFavs();
 }
 async function checkUpdates() {
   if (!('serviceWorker' in navigator)) return;
@@ -710,6 +735,8 @@ if ('serviceWorker' in navigator) {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdates(); refreshFavs(); } });
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+$('#speed').onclick = () => speedMenu($('#speed')); $('#info').onclick = () => { if (curEp) epInfo(curEp, curShow, '', curFeedUrl); else toast('Aucun épisode en cours'); };
+dlInit().then(() => { if (tab === 'favs') renderFavs(); }); applyRate();
 render(); checkUpdates(); refreshFavs();
 
 // ---------- Installation : bouton toujours visible + étapes adaptées à l'appareil et au navigateur ----------
