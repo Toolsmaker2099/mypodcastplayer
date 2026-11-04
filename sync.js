@@ -49,5 +49,23 @@ const Sync = (() => {
     if (r.conflict) await pull();
   }
   function setFavs(list) { save(FAV_KEY, list); push().catch(() => {}); }
-  return { favs, setFavs, pull, cfg, setCfg, enabled, newCode };
+  const fmt = v => (v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16).match(/.{1,4}/g) || []).join('-');
+  // Crée une nouvelle sauvegarde à partir des favoris locaux.
+  async function create() {
+    const code = newCode(), c = cfg();
+    setCfg({ ...c, code }); localStorage.removeItem(VER_KEY);
+    try { await pull(); } catch (e) { setCfg(c); throw e; }
+    return code;
+  }
+  // Récupère une sauvegarde existante (refuse un code inconnu, sans rien créer).
+  async function restore(code) {
+    const c = cfg();
+    setCfg({ ...c, code }); localStorage.removeItem(VER_KEY);
+    try {
+      if (!(await get())) throw new Error('Code inconnu : aucune sauvegarde trouvée.');
+      await pull();
+    } catch (e) { setCfg(c); throw e; }
+  }
+  function leave() { const c = cfg(); delete c.code; setCfg(c); localStorage.removeItem(VER_KEY); }
+  return { favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
 })();

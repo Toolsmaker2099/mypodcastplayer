@@ -103,19 +103,39 @@ async function openFeed(f, back) {
 function renderSettings() {
   const c = Sync.cfg();
   view.innerHTML = `<label>Ajouter un flux RSS</label><form id="af" class="row"><input id="rss" placeholder="https://…/feed.xml"><button>Ajouter</button></form><p id="am" class="dim"></p>
-  <label>Code de sauvegarde des favoris</label><div class="row"><input id="ck" value="${esc(c.code || '')}" placeholder="XXXX-XXXX-XXXX-XXXX"><button id="cg" type="button">Créer</button></div>
+  <label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
   <label>Proxy RSS (worker, si un flux est bloqué)</label><input id="cu" value="${esc(c.proxy || '')}" placeholder="https://rss.xxx.workers.dev">
-  <p><button id="cs">Enregistrer et synchroniser</button></p><p id="cm" class="dim"></p>`;
+  <p><button id="cs">Enregistrer le proxy</button></p>`;
   $('#af').onsubmit = async e => {
     e.preventDefault();
     try { const f = await loadFeed($('#rss').value.trim()); toggleFav({ feedUrl: f.feedUrl, title: f.title, image: f.image }); $('#am').textContent = 'Ajouté : ' + f.title; $('#rss').value = ''; }
     catch (err) { $('#am').textContent = err.message; }
   };
-  $('#cg').onclick = () => { $('#ck').value = Sync.newCode(); };
-  $('#cs').onclick = async () => {
-    Sync.setCfg({ code: $('#ck').value.trim().toUpperCase(), proxy: $('#cu').value.trim() });
-    try { await Sync.pull(); $('#cm').textContent = 'Synchronisé.'; } catch (err) { $('#cm').textContent = 'Échec : ' + err.message; }
-  };
+  const msg = t => { $('#cm').textContent = t; };
+  function drawBackup() {
+    const code = Sync.enabled() ? Sync.cfg().code : '';
+    $('#bk').innerHTML = code
+      ? `<div class="code">${esc(code)}</div><div class="row"><button id="bcopy">Copier</button><button id="bsync">Synchroniser</button><button id="bleave">Quitter</button></div><p class="dim">Saisis ce code sur un autre appareil pour retrouver tes favoris.</p>`
+      : `<div class="row"><button id="bnew" style="flex:1">Créer une nouvelle sauvegarde</button></div>
+         <label>Ou récupérer une sauvegarde existante</label>
+         <div class="row"><input id="bin" placeholder="XXXX-XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text"><button id="brest">Récupérer</button></div>`;
+    if (code) {
+      $('#bcopy').onclick = () => { navigator.clipboard?.writeText(code); msg('Code copié.'); };
+      $('#bsync').onclick = async () => { try { await Sync.pull(); msg('Synchronisé.'); } catch (e) { msg('Échec : ' + e.message); } };
+      $('#bleave').onclick = () => { if (confirm('Quitter cette sauvegarde ? Les favoris restent sur cet appareil.')) { Sync.leave(); msg(''); drawBackup(); } };
+    } else {
+      $('#bnew').onclick = async () => { msg('Création…'); try { await Sync.create(); msg('Sauvegarde créée. Note bien ce code.'); drawBackup(); } catch (e) { msg('Échec : ' + e.message); } };
+      $('#bin').oninput = e => { e.target.value = Sync.fmt(e.target.value); };
+      $('#brest').onclick = async () => {
+        const v = $('#bin').value;
+        if (v.length !== 19) return msg('Le code doit comporter 16 caractères (XXXX-XXXX-XXXX-XXXX).');
+        msg('Recherche…');
+        try { await Sync.restore(v); msg('Sauvegarde récupérée.'); drawBackup(); refreshFavs(); } catch (e) { msg(e.message.startsWith('Code') ? e.message : 'Échec : ' + e.message); }
+      };
+    }
+  }
+  drawBackup();
+  $('#cs').onclick = () => { Sync.setCfg({ ...Sync.cfg(), proxy: $('#cu').value.trim() }); msg('Proxy enregistré.'); };
 }
 
 // ---------- Lecture (toujours depuis 0, rien n'est mémorisé) ----------
