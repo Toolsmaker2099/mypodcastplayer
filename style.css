@@ -58,3 +58,4 @@ label{display:block;margin-top:18px;color:var(--dim);font-size:13px;text-transfo
 #seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-4px;border-radius:50%;background:#fff;border:0;box-shadow:0 2px 8px rgba(0,0,0,.5)}
 #seek::-moz-range-track{height:6px;background:transparent}
 #seek::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.item.off{opacity:.4}

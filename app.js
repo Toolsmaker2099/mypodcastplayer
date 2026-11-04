@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.12';
+const APP_VERSION = '2026-11-04.13';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -56,7 +56,7 @@ function fmtDur(d) {
 }
 const meta = f => [f.genre, f.count ? f.count + ' épisodes' : '', f.last ? 'dernier : ' + fmtDate(f.last) : ''].filter(Boolean).join(' · ');
 function showItem(f, star) {
-  return `<div class="item" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div>${star ? `<button class="star" data-star>${Sync.favs().some(x => x.feedUrl === f.feedUrl) ? '★' : '☆'}</button>` : ''}</div>`;
+  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div>${star ? `<button class="star" data-star>${Sync.favs().some(x => x.feedUrl === f.feedUrl) ? '★' : '☆'}</button>` : ''}</div>`;
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
@@ -91,12 +91,13 @@ function renderSearch() {
       const url = q ? `https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`
                     : `https://itunes.apple.com/search?media=podcast&limit=200&country=fr&attribute=artistTerm&term=${encodeURIComponent(prod[0])}`;
       const r = await (await fetch(url)).json();
-      let res = r.results.filter(x => x.feedUrl);
+      let res = r.results;
       if (prod) res = res.filter(x => prod[1].test(x.artistName || '') || prod[1].test(x.collectionName || ''));
-      const list = res.slice(0, 50).map(x => ({ feedUrl: x.feedUrl, title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
-      $('#res').innerHTML = list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat.</p>';
+      const list = res.slice(0, 50).map(x => ({ feedUrl: x.feedUrl || '', title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
+      const nofeed = list.filter(f => !f.feedUrl).length;
+      $('#res').innerHTML = (nofeed ? `<p class="dim">${nofeed} résultat${nofeed > 1 ? 's' : ''} sans flux public dans l'annuaire Apple (grisé${nofeed > 1 ? 's' : ''}) : impossible de les lire ici.</p>` : '') + (list.map(f => showItem(f, !!f.feedUrl)).join('') || '<p class="dim">Aucun résultat.</p>');
       $('#res').querySelectorAll('.item').forEach((el, i) => {
-        el.onclick = ev => { if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; } else openFeed(list[i], () => render()); };
+        el.onclick = ev => { if (!list[i].feedUrl) return; if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; } else openFeed(list[i], () => render()); };
       });
     } catch (err) { $('#res').innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
   };
