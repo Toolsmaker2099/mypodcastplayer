@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.21';
+const APP_VERSION = '2026-11-04.22';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -444,7 +444,7 @@ function buildGraph() {
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   const src = ctx.createMediaElementSource(audio);
   comp = ctx.createDynamicsCompressor(); makeup = ctx.createGain(); analyser = ctx.createAnalyser();
-  analyser.fftSize = 128; analyser.smoothingTimeConstant = 0.75;
+  analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.75;
   src.connect(comp); comp.connect(makeup); makeup.connect(analyser); analyser.connect(ctx.destination);
 }
 function reloadCurrent(play) {
@@ -505,7 +505,7 @@ showNight(); showViz();
 
   // Visualiseur : vraies fréquences si le traitement audio est branché (CORS), sinon animation synchronisée à la lecture.
   const cv = $('#viz'), g = cv.getContext('2d'), N = 28;
-  let raf = 0, levels = new Array(N).fill(0), data = null;
+  let raf = 0, levels = new Array(N).fill(0), data = null, peak = 0.3;
   function frame(t) {
     raf = requestAnimationFrame(frame);
     const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
@@ -514,9 +514,22 @@ showNight(); showViz();
     const playing = !audio.paused && !audio.ended;
     const real = !!analyser && ctx && ctx.state === 'running' && playing;
     if (real) { data = data || new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data); }
+    // Échelle logarithmique 60 Hz – 8 kHz (la voix n'a presque rien au-dessus), avec gain automatique pour que toutes les barres vivent
+    let raw = null;
+    if (real) {
+      const binHz = ctx.sampleRate / analyser.fftSize, maxBin = data.length - 1; raw = new Array(N); let mx = 0;
+      for (let i = 0; i < N; i++) {
+        const f0 = 60 * Math.pow(8000 / 60, i / N), f1 = 60 * Math.pow(8000 / 60, (i + 1) / N);
+        const b0 = Math.min(maxBin, Math.floor(f0 / binHz)), b1 = Math.min(maxBin, Math.max(b0, Math.ceil(f1 / binHz)));
+        let s = 0; for (let b = b0; b <= b1; b++) s = Math.max(s, data[b]);
+        raw[i] = (s / 255) * (1 + 1.8 * i / N); // les aigus de la voix sont plus faibles : on les compense
+        mx = Math.max(mx, raw[i]);
+      }
+      peak = Math.max(0.25, peak * 0.995, mx);
+    }
     for (let i = 0; i < N; i++) {
       let target;
-      if (real) { const lo = Math.floor(Math.pow(i / N, 1.6) * (data.length - 6)), v = Math.max(data[lo], data[lo + 1], data[lo + 2]); target = Math.pow(v / 255, 1.3); }
+      if (real) target = Math.pow(Math.min(1, raw[i] / peak), 1.4);
       else if (playing) target = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(t / 260 + i * 0.7)) + 0.25 * (0.5 + 0.5 * Math.sin(t / 130 + i * 1.9)) * (0.6 + 0.4 * Math.sin(t / 900 + i));
       else target = 0.04;
       levels[i] += (target - levels[i]) * (target > levels[i] ? 0.5 : 0.12);
