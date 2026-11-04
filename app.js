@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.52';
+const APP_VERSION = '2026-11-04.53';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -104,7 +104,7 @@ function renderFavs() {
     openFeed(l[i]);
   });
 }
-// ---------- Podcast Index (clé + secret saisis dans Réglages, stockés sur l'appareil seulement) ----------
+// ---------- Podcast Index (clé + secret saisis dans Réglages ; synchronisés avec la sauvegarde, au choix de l'utilisateur) ----------
 const piCfg = () => { try { return JSON.parse(localStorage.getItem('pi.cfg')) || {}; } catch { return {}; } };
 const piReady = () => { const c = piCfg(); return !!(c.key && c.secret); };
 async function piGet(path) {
