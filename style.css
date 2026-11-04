@@ -351,3 +351,8 @@ button.sw.on{background:linear-gradient(135deg,#6f86ff,#b072ff);border-color:tra
 .pchip.on{color:#fff;background:linear-gradient(135deg,rgba(111,134,255,.42),rgba(176,114,255,.34));border-color:rgba(165,185,255,.7)}
 .pchip.add{color:var(--acc);border-style:dashed;background:none}
 .pnewi{display:flex;gap:8px;width:100%}.pnewi input{flex:1;min-width:0;margin:0;padding:9px 12px;border-radius:12px}.pok{padding:9px 14px;border-radius:12px;font-weight:700;color:#0a0c18;background:linear-gradient(135deg,var(--acc),var(--acc2));border:0}
+
+.lmanagebox{margin:10px 0 14px;padding:10px 12px 4px;border:1px solid rgba(139,127,255,.35);border-left:3px solid #8b7fff;border-radius:14px;background:rgba(139,127,255,.07)}
+.lmanagebox .lmtitle{font-size:13px;opacity:.8;margin-bottom:6px}
+.lmanagebox .lmtitle b{color:#fff;opacity:1}
+.lmanagebox .tglrow{margin:0 0 6px}
