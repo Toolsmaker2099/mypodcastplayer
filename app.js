@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.54';
+const APP_VERSION = '2026-11-04.56';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -13,6 +13,9 @@ IC.timer = svg('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.
 IC.eq = svg('<path d="M5 14v4M9 6v12M13 10v8M17 4v14M21 12v6"/>', 17);
 IC.share = svg('<circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="m8.3 10.8 7.4-4.3M8.3 13.2l7.4 4.3"/>', 18);
 IC.scan = svg('<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/>', 18);
+IC.chain = svg('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>', 17);
+IC.track = svg('<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.2 9.5"/>', 17);
+IC.select = svg('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12 3 3 5-6"/>', 17);
 const labeled = (ic, t) => `${ic}<span>${t}</span>`;
 const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Favori" aria-pressed="${on}">${IC.star}</button>`;
 const setStar = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
@@ -263,13 +266,14 @@ async function openFeed(f, back) {
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
       <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button></p>` +
-      `<div class="filters"><select id="ord"><option value="desc">Récents d'abord</option><option value="asc">Anciens d'abord</option></select>
-        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select><button id="chain" type="button"></button><button id="track" type="button"></button><button id="selbtn" type="button" hidden>☑ Sélection</button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
-    const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
+      `<div class="filters fgrid"><select id="ord"><option value="desc">Récents d'abord</option><option value="asc">Anciens d'abord</option></select>
+        <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select></div><div class="tglrow"><button id="chain" type="button" class="tgl"></button><button id="track" type="button" class="tgl"></button><button id="selbtn" type="button" class="tgl" hidden></button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
+    const tgl = (id, ic, label, on) => { const b = $('#' + id); b.innerHTML = labeled(ic, label); b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', !!on); };
+    const showChain = () => tgl('chain', IC.chain, 'Enchaîner', chain);
     $('#chain').onclick = () => { chain = !chain; try { localStorage.setItem('chain', chain ? '1' : '0'); } catch {} showChain(); };
     showChain();
     let selMode = false, curListIdx = []; const sel = new Set();
-    const showSel = () => { $('#selbar').hidden = !selMode; $('#selbtn').style.color = selMode ? 'var(--acc)' : ''; $('#selcnt').textContent = sel.size ? sel.size + ' sélectionné' + (sel.size > 1 ? 's' : '') : 'Touche des épisodes pour les sélectionner'; $('#selbar').querySelectorAll('[data-a=read],[data-a=unread]').forEach(b => { b.disabled = !sel.size; }); };
+    const showSel = () => { $('#selbar').hidden = !selMode; $('#selbtn').classList.toggle('on', selMode); $('#selcnt').textContent = sel.size ? sel.size + ' sélectionné' + (sel.size > 1 ? 's' : '') : 'Touche des épisodes pour les sélectionner'; $('#selbar').querySelectorAll('[data-a=read],[data-a=unread]').forEach(b => { b.disabled = !sel.size; }); };
     $('#selbtn').onclick = () => { selMode = !selMode; sel.clear(); showSel(); drawEps(); };
     $('#selbar').onclick = ev => {
       const b = ev.target.closest('button[data-a]'); if (!b) return; const act = b.dataset.a;
@@ -278,7 +282,7 @@ async function openFeed(f, back) {
       else { if (!sel.size) return; const n = sel.size; setProgMany(feed.feedUrl, [...sel].map(i => feed.episodes[i]), act === 'read' ? { r: 1, t: 0 } : { r: 0, t: 0 }); sel.clear(); toast(n + (n > 1 ? ' épisodes marqués ' : ' épisode marqué ') + (act === 'read' ? 'lu' : 'non lu') + (n > 1 ? 's' : '')); }
       showSel(); drawEps();
     };
-    const showTrack = () => { const on = trackOn(feed.feedUrl); $('#track').textContent = on ? '◔ Suivi : oui' : '◔ Suivi : non'; $('#track').style.color = on ? 'var(--acc)' : ''; $('#rd').hidden = !on; $('#selbtn').hidden = !on; if (!on) { selMode = false; sel.clear(); showSel(); } };
+    const showTrack = () => { const on = trackOn(feed.feedUrl); tgl('track', IC.track, 'Suivi de lecture', on); tgl('selbtn', IC.select, 'Sélection', selMode); $('#rd').hidden = !on; $('#selbtn').hidden = !on; if (!on) { selMode = false; sel.clear(); showSel(); } };
     $('#track').onclick = () => { const m = numMap('track.v1'); if (m[feed.feedUrl]) delete m[feed.feedUrl]; else m[feed.feedUrl] = 1; try { localStorage.setItem('track.v1', JSON.stringify(m)); } catch {} showTrack(); drawEps(); };
     const allPrefs = () => { try { return JSON.parse(localStorage.getItem('epprefs.v2')) || {}; } catch { return {}; } };
     const prefs = () => ({ order: 'desc', min: 0, read: 'all', ...allPrefs()[feed.feedUrl] }); // réglages propres à ce podcast
@@ -698,3 +702,49 @@ showNight();
 })();
 
 $('#sleep').innerHTML = labeled(IC.timer, 'Minuteur');
+
+// ---------- Listes déroulantes : version sombre et lisible sur ordinateur (le sélecteur natif reste sur mobile) ----------
+(() => {
+  const mq = matchMedia('(hover:hover) and (pointer:fine)');
+  const vd = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  let menu = null;
+  const closeMenu = () => { if (!menu) return; menu.el.remove(); menu.btn.classList.remove('open'); document.removeEventListener('keydown', menu.key, true); menu = null; };
+  function open(sel, btn) {
+    closeMenu();
+    const el = document.createElement('div'); el.className = 'ddm'; el.setAttribute('role', 'listbox');
+    el.innerHTML = [...sel.options].map((o, i) => `<button type="button" class="ddi${i === sel.selectedIndex ? ' sel' : ''}" role="option" data-i="${i}"><span>${esc(o.textContent)}</span>${i === sel.selectedIndex ? '<b>✓</b>' : ''}</button>`).join('');
+    document.body.appendChild(el);
+    const r = btn.getBoundingClientRect(), h = el.offsetHeight, below = innerHeight - r.bottom - 12;
+    el.style.minWidth = r.width + 'px'; el.style.left = Math.max(8, Math.min(r.left, innerWidth - el.offsetWidth - 8)) + 'px';
+    if (h > below && r.top > below) { el.style.bottom = (innerHeight - r.top + 6) + 'px'; el.style.maxHeight = Math.min(h, r.top - 12) + 'px'; }
+    else { el.style.top = (r.bottom + 6) + 'px'; el.style.maxHeight = Math.max(160, below) + 'px'; }
+    btn.classList.add('open');
+    let cur = sel.selectedIndex; const items = [...el.querySelectorAll('.ddi')];
+    const mark = () => { items.forEach((x, i) => x.classList.toggle('hl', i === cur)); items[cur] && items[cur].scrollIntoView({ block: 'nearest' }); };
+    const pick = i => { sel.selectedIndex = i; sel.dispatchEvent(new Event('change', { bubbles: true })); sel.value = sel.value; closeMenu(); btn.focus(); };
+    const key = e => {
+      if (e.key === 'Escape') { e.preventDefault(); closeMenu(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); cur = Math.min(items.length - 1, cur + 1); mark(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); cur = Math.max(0, cur - 1); mark(); }
+      else if (e.key === 'Enter') { e.preventDefault(); pick(cur); }
+    };
+    document.addEventListener('keydown', key, true);
+    el.onclick = e => { const b = e.target.closest('.ddi'); if (b) pick(+b.dataset.i); };
+    el.onmousemove = e => { const b = e.target.closest('.ddi'); if (b) { cur = +b.dataset.i; mark(); } };
+    menu = { el, btn, key }; el.querySelector('.sel') && el.querySelector('.sel').scrollIntoView({ block: 'center' });
+  }
+  function enhance(sel) {
+    if (sel.dataset.dd || !mq.matches) return; sel.dataset.dd = '1';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ddb'; if (sel.id) b.id = sel.id + '-dd';
+    const sync = () => { const o = sel.options[sel.selectedIndex]; b.innerHTML = `<span>${esc(o ? o.textContent : '')}</span>${IC.chev}`; b.hidden = sel.hidden; b.disabled = sel.disabled; };
+    Object.defineProperty(sel, 'value', { get() { return vd.get.call(sel); }, set(v) { vd.set.call(sel, v); sync(); }, configurable: true });
+    new MutationObserver(sync).observe(sel, { childList: true, attributes: true, attributeFilter: ['hidden', 'disabled'] });
+    sel.addEventListener('change', sync);
+    b.onclick = () => (menu && menu.btn === b ? closeMenu() : open(sel, b));
+    sel.after(b); sync();
+  }
+  const scan = () => document.querySelectorAll('select:not([data-dd])').forEach(enhance);
+  new MutationObserver(scan).observe(document.body, { childList: true, subtree: true }); scan();
+  document.addEventListener('pointerdown', e => { if (menu && !menu.el.contains(e.target) && !menu.btn.contains(e.target)) closeMenu(); }, true);
+  addEventListener('resize', closeMenu); addEventListener('scroll', e => { if (menu && !menu.el.contains(e.target)) closeMenu(); }, true);
+})();
