@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.38';
+const APP_VERSION = '2026-11-04.39';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -247,7 +247,7 @@ async function openFeed(f, back) {
     const feed = feedCache.get(f.feedUrl) || await loadFeed(f.feedUrl);
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
-      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter les premières secondes</label><input id="skipin" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button></p>` +
+      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button></p>` +
       `<div class="filters"><select id="ord"><option value="desc">Récents d'abord</option><option value="asc">Anciens d'abord</option></select>
         <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><button id="chain" type="button"></button></div><div id="eps"></div>`;
     const showChain = () => { $('#chain').textContent = chain ? '↻ Enchaîner : oui' : '↻ Enchaîner : non'; $('#chain').style.color = chain ? 'var(--acc)' : ''; };
@@ -266,11 +266,13 @@ async function openFeed(f, back) {
       $('#eps').innerHTML = (list.slice(0, 150).map(({ e, i }) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb" aria-label="Lire">${IC.play}</button></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
     $('#ord').onchange = $('#mind').onchange = drawEps; drawEps();
-    $('#skipin').oninput = e => {
-      const m = skipMap(), v = Math.max(0, Math.floor(+e.target.value) || 0);
+    const bindSkip = (id, key) => { $('#' + id).oninput = e => {
+      const m = numMap(key), v = num(e.target.value);
       if (v) m[feed.feedUrl] = v; else delete m[feed.feedUrl];
-      try { localStorage.setItem('skip.v1', JSON.stringify(m)); } catch {}
-    };
+      try { localStorage.setItem(key, JSON.stringify(m)); } catch {}
+      if (feed.feedUrl === curFeedUrl) { curSkip = skipFor(curFeedUrl); curSkipEnd = skipEndFor(curFeedUrl); }
+    }; };
+    bindSkip('skipin', 'skip.v1'); bindSkip('skipend', 'skipend.v1');
     $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'; };
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
@@ -344,13 +346,16 @@ function renderSettings() {
 let chain = localStorage.getItem('chain') === '1', curList = [], queue = [], qi = -1, qCtx = null;
 function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; play(queue[i], qCtx.show, qCtx.art, qCtx.feedUrl); return true; }
 onAudio('ended', () => { if (chain) playAt(qi + 1); });
-const skipMap = () => { try { return JSON.parse(localStorage.getItem('skip.v1')) || {}; } catch { return {}; } };
-const skipFor = u => +skipMap()[u] || 0;
+// Secondes à sauter par podcast (une décimale, virgule ou point acceptés) : réglages fixes, pas une progression de lecture.
+const num = s => { const v = parseFloat(String(s).replace(',', '.')); return isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : 0; };
+const numMap = key => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } };
+const skipFor = u => +numMap('skip.v1')[u] || 0;
+const skipEndFor = u => +numMap('skipend.v1')[u] || 0;
 const syncNav = () => { $('#prev').disabled = qi <= 0; $('#next').disabled = qi < 0 || qi >= queue.length - 1; };
 $('#prev').onclick = () => playAt(qi - 1); $('#next').onclick = () => playAt(qi + 1);
 const corsBad = new Set(), hostOf = u => { try { return new URL(u).host; } catch { return u; } };
 const note = t => { $('#np-show').textContent = t || curShow; };
-let curShow = '', curSkip = 0;
+let curShow = '', curSkip = 0, curSkipEnd = 0, curFeedUrl = '', earlyDone = false;
 function play(ep, show, art, feedUrl) {
   curShow = show;
   syncNav();
@@ -359,6 +364,7 @@ function play(ep, show, art, feedUrl) {
   audio.crossOrigin = plain ? null : 'anonymous';
   audio.src = ep.url; note(plain && nightOn ? 'Mode nuit indisponible pour ce podcast.' : '');
   audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
+  curFeedUrl = feedUrl; curSkipEnd = skipEndFor(feedUrl); earlyDone = false;
   const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
   if (skip > 0) audio.addEventListener('canplay', () => { if (audio.duration > skip) audio.currentTime = skip; }, { once: true });
   const cover = (ep.image || art || '').replace(/\d+x\d+bb/, '600x600bb');
@@ -393,6 +399,16 @@ function resetSeek() { seeking = false; setRatio(0); syncTimes(); }
 ['loadstart', 'emptied'].forEach(ev => onAudio(ev, resetSeek));
 ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => onAudio(ev, syncSeek));
 onAudio('timeupdate', checkSleep);
+// Sauter les dernières secondes : on termine l'épisode (et on enchaîne si activé) quand il ne reste que ce délai.
+onAudio('timeupdate', () => {
+  const d = audio.duration;
+  if (!curSkipEnd || earlyDone || !isFinite(d) || d <= curSkipEnd + curSkip + 1 || audio.paused) return;
+  if (d - audio.currentTime <= curSkipEnd + 0.05) {
+    earlyDone = true;
+    if (chain && queue.length && qi < queue.length - 1) playAt(qi + 1);
+    else { audio.pause(); try { audio.currentTime = d; } catch {} }
+  }
+});
 // Barre de progression maison : active sur toute sa longueur, du premier au dernier pixel.
 const ratioAt = e => { const r = seekEl.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
 const dragTo = e => { const r = ratioAt(e); setRatio(r); syncTimes(r * audio.duration); return r; };
