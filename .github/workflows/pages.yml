@@ -18,11 +18,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
       - name: Préparer le site
         run: |
           mkdir _site
           cp -r index.html app.js sync.js extra.js share.js vendor style.css sw.js manifest.webmanifest icons _site/
           touch _site/.nojekyll
+      - name: Annuler un déploiement Pages resté bloqué (s'il y en a un)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for sha in $(git log -10 --format=%H | tail -n +2); do
+            gh api -X POST "repos/${{ github.repository }}/pages/deployments/$sha/cancel" >/dev/null 2>&1 && echo "annulé : $sha" || true
+          done
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
