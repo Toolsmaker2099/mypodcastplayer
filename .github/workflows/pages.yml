@@ -1,7 +1,7 @@
 name: Deploy Pages
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, claude/project-thread-bztim3]
   workflow_dispatch:
 permissions:
   contents: read
