@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.83';
+const APP_VERSION = '2026-11-04.84';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -106,7 +106,7 @@ function toggleFav(f) {
   Sync.setFavs(l);
 }
 function render() {
-  setTitle({ favs: 'Favoris', search: 'Recherche', add: 'Ajouter', settings: 'Réglages' }[tab]);
+  setTitle({ favs: 'Mes podcasts', search: 'Recherche', add: 'Ajouter', settings: 'Réglages' }[tab]);
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   ({ favs: renderFavs, search: renderSearch, add: renderAdd, settings: renderSettings })[tab]();
 }

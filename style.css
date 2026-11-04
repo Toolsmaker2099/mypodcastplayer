@@ -299,3 +299,5 @@ nav button{position:relative}.bdg{position:absolute;top:4px;right:calc(50% - 30p
 #player.mini #closep{position:static;order:4;width:42px;height:42px}
 #player.full #closep{top:calc(12px + env(safe-area-inset-top));left:14px;right:auto;width:46px;height:46px}
 .ibtn.dlb{font-size:13px}.ibtn.dlb.on{color:#6ee7a8;border-color:rgba(110,231,168,.5)}
+nav button{white-space:nowrap;padding-left:6px;padding-right:6px}@media(max-width:480px){nav button{font-size:13px}}
+nav .bdg{right:2px;top:1px}
