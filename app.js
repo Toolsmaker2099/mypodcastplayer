@@ -1,8 +1,8 @@
-const APP_VERSION = '2026-11-04.75';
+const APP_VERSION = '2026-11-04.77';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
-  star: svg('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>', 21),
+  star: svg('<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>', 21),
   chev: svg('<path d="m6 9 6 6 6-6"/>', 20),
   play: svg('<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>', 18, true),
   playBig: svg('<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>', 28, true),
@@ -19,7 +19,7 @@ IC.select = svg('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m
 IC.link = svg('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>', 20);
 IC.list = svg('<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>', 18);
 const labeled = (ic, t) => `${ic}<span>${t}</span>`;
-const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Favori" aria-pressed="${on}">${IC.star}</button>`;
+const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Coup de cœur" aria-pressed="${on}">${IC.star}</button>`;
 const setStar = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
 const el1 = $('#audio'), el2 = new Audio(), view = $('#view');
 el2.preload = 'none';
@@ -84,7 +84,8 @@ function fmtDur(d) {
 }
 const meta = f => [f.genre, f.count ? f.count + ' épisodes' : '', f.last ? 'dernier : ' + fmtDate(f.last) : ''].filter(Boolean).join(' · ');
 function showItem(f, star, lst = !!f.feedUrl) {
-  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div><div class="acts">${lst ? `<button class="ibtn lbtn" data-listadd aria-label="Ajouter à une liste" title="Ajouter à une liste">${IC.list}</button>` : ''}${star ? starBtn(Sync.favs().some(x => x.feedUrl === f.feedUrl)) : ''}</div></div>`;
+  const ld = listsData(), tags = (ld.members[f.feedUrl] || []).map(id => (ld.lists.find(x => x.id === id) || {}).name).filter(Boolean);
+  return `<div class="item${f.feedUrl ? '' : ' off'}" data-feed="${esc(f.feedUrl)}"><img src="${esc(f.image)}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small><small class="m">${esc(meta(f))}</small>${tags.length ? `<div class="ltags">${tags.map(t => `<span class="ltag">${esc(t)}</span>`).join('')}</div>` : ''}${f.desc ? `<p class="d">${esc(f.desc)}</p>` : ''}</div><div class="acts">${lst ? `<button class="ibtn lbtn" data-listadd aria-label="Ajouter à une liste" title="Ajouter à une liste">${IC.list}</button>` : ''}${star ? starBtn(Sync.favs().some(x => x.feedUrl === f.feedUrl)) : ''}</div></div>`;
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
@@ -136,7 +137,7 @@ function renderPodcastFavs(head) {
     localStorage.setItem('favlist', k); renderFavs();
   });
   view.querySelectorAll('.item').forEach((el, i) => el.onclick = ev => {
-    if (ev.target.closest('[data-listadd]')) { listsSheet(l[i], () => { if (cur !== 'all') renderFavs(); }); return; }
+    if (ev.target.closest('[data-listadd]')) { listsSheet(l[i], () => { if (cur !== 'all') renderFavs(); }, ev.target.closest('[data-listadd]')); return; }
     if (ev.target.closest('[data-unlist]')) { // retire seulement de cette liste
       const dd = listsData(), u = l[i].feedUrl; dd.members[u] = (dd.members[u] || []).filter(x => x !== cur); if (!dd.members[u].length) { delete dd.members[u]; delete dd.pods[u]; } saveLists(dd);
       el.classList.add('removed'); return;
@@ -155,21 +156,39 @@ const plData = () => { try { const d = JSON.parse(localStorage.getItem('playlist
 const savePl = l => { try { localStorage.setItem('playlists.v1', JSON.stringify(l)); } catch {} };
 const epSnap = (e, feed) => ({ url: e.url, title: e.title, dur: e.dur || '', image: e.image || '', date: e.date || '', show: feed.title, art: feed.image || '', feed: feed.feedUrl });
 const plTotal = p => { const s = p.items.reduce((t, x) => t + durSec(x.dur), 0); return s ? ' · ' + fmtDur(s) : ''; };
-function playlistPicker(snaps) { // ajoute des épisodes à une playlist (ou en crée une)
-  withShare(() => {
-    const draw = () => {
-      const l = plData();
-      m.querySelector('.lbody').innerHTML = (l.map(p => `<button type="button" class="lrow plpick" data-id="${p.id}"><span>${esc(p.name)}</span><small class="dim">${p.items.length} épisode${p.items.length > 1 ? 's' : ''}</small></button>`).join('')) || '<p class="dim">Aucune playlist pour l\'instant : crées-en une.</p>';
-      m.querySelectorAll('.plpick').forEach(b => b.onclick = () => {
-        const all = plData(), p = all.find(x => x.id === b.dataset.id); let n = 0;
-        snaps.forEach(s => { if (!p.items.some(x => x.url === s.url)) { p.items.push(s); n++; } });
-        savePl(all); m.close(); toast(n ? `${n} épisode${n > 1 ? 's ajoutés' : ' ajouté'} à « ${p.name} »` : 'Déjà dans « ' + p.name + ' »');
-      });
-    };
-    const m = modal(`<h3>Ajouter à une playlist</h3><p class="dim sm">${snaps.length} épisode${snaps.length > 1 ? 's' : ''}</p><div class="lbody"></div><button type="button" id="plnew" class="abtn">+ Nouvelle playlist</button><button data-close class="ghost">Annuler</button>`);
-    m.querySelector('#plnew').onclick = async () => { const n = await askName('Nouvelle playlist'); if (n) { const all = plData(); all.push({ id: newId(), name: n, items: [] }); savePl(all); } draw(); };
-    draw();
-  });
+// Petit menu ancré au bouton cliqué (listes, playlists)
+let popState = null;
+function closePop() {
+  if (!popState) return; const p = popState; popState = null;
+  document.removeEventListener('pointerdown', p.out, true); document.removeEventListener('keydown', p.key, true); removeEventListener('resize', closePop); removeEventListener('scroll', p.scroll, true);
+  p.el.remove(); if (p.onclose) p.onclose();
+}
+function popover(anchor, html, onclose) {
+  if (popState && popState.anchor === anchor) { closePop(); return null; } // un second clic referme
+  closePop();
+  const el = document.createElement('div'); el.className = 'pop'; el.innerHTML = html; document.body.appendChild(el);
+  const place = () => {
+    const r = anchor.getBoundingClientRect(), w = Math.min(320, innerWidth - 16); el.style.width = w + 'px';
+    el.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+    const h = el.scrollHeight, below = innerHeight - r.bottom - 12;
+    if (h > below && r.top > below) { el.style.top = 'auto'; el.style.bottom = (innerHeight - r.top + 6) + 'px'; el.style.maxHeight = Math.max(160, r.top - 16) + 'px'; }
+    else { el.style.bottom = 'auto'; el.style.top = (r.bottom + 6) + 'px'; el.style.maxHeight = Math.max(180, below) + 'px'; }
+  };
+  const out = e => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePop(); };
+  const key = e => { if (e.key === 'Escape') closePop(); };
+  const scroll = e => { if (!el.contains(e.target)) closePop(); };
+  document.addEventListener('pointerdown', out, true); document.addEventListener('keydown', key, true); addEventListener('resize', closePop); addEventListener('scroll', scroll, true);
+  popState = { el, anchor, out, key, scroll, onclose }; el.place = place; place(); return el;
+}
+const newRow = ph => `<form class="row pnew"><input maxlength="40" placeholder="${ph}" autocomplete="off"><button class="abtn">OK</button></form>`;
+function playlistPicker(snaps, anchor) { // ajoute des épisodes à une playlist (ou en crée une)
+  const add = (p, all) => { let n = 0; snaps.forEach(s => { if (!p.items.some(x => x.url === s.url)) { p.items.push(s); n++; } }); savePl(all); closePop(); toast(n ? `${n} épisode${n > 1 ? 's ajoutés' : ' ajouté'} à « ${p.name} »` : 'Déjà dans « ' + p.name + ' »'); };
+  const el = popover(anchor, `<div class="phead">Ajouter à une playlist</div><div class="lbody"></div>${newRow('Nouvelle playlist')}`); if (!el) return;
+  const l = plData();
+  el.querySelector('.lbody').innerHTML = l.map(p => `<button type="button" class="prow" data-id="${p.id}"><span>${esc(p.name)}</span><small class="dim">${p.items.length}</small></button>`).join('') || '<p class="dim sm" style="padding:6px 8px;margin:0">Aucune playlist : crées-en une ci-dessous.</p>';
+  el.querySelectorAll('.prow').forEach(b => b.onclick = () => { const all = plData(); add(all.find(x => x.id === b.dataset.id), all); });
+  el.querySelector('.pnew').onsubmit = e => { e.preventDefault(); const v = el.querySelector('.pnew input').value.trim(); if (!v) return; const all = plData(), p = { id: newId(), name: v, items: [] }; all.push(p); add(p, all); };
+  el.place(); setTimeout(() => el.querySelector('.pnew input').focus({ preventScroll: true }), 0);
 }
 function playPlaylist(p, start = 0) {
   if (!p.items.length) return;
@@ -207,23 +226,18 @@ function openPlaylist(id) {
   };
   draw();
 }
-// Choix des listes d'un podcast (fiche du podcast)
-function listsSheet(feed, onDone) {
-  withShare(() => {
-    const isFavNow = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
-    const draw = () => {
-      const d = listsData(), mem = d.members[feed.feedUrl] || [];
-      m.querySelector('.lbody').innerHTML = d.lists.length ? d.lists.map(x => `<label class="lrow"><input type="checkbox" data-id="${x.id}"${mem.includes(x.id) ? ' checked' : ''}><span>${esc(x.name)}</span></label>`).join('') : '<p class="dim">Aucune liste personnalisée pour l\'instant.</p>';
-      m.querySelectorAll('input[data-id]').forEach(c => c.onchange = () => {
-        const dd = listsData(), u = feed.feedUrl, s = new Set(dd.members[u] || []); c.checked ? s.add(c.dataset.id) : s.delete(c.dataset.id);
-        if (s.size) { dd.members[u] = [...s]; dd.pods[u] = podSnap(feed); } else { delete dd.members[u]; delete dd.pods[u]; } saveLists(dd);
-      });
-    };
-    const m = modal(`<h3>Listes</h3><p class="dim sm">${esc(feed.title)}</p><div class="lbody"></div><button type="button" id="lnew" class="abtn">+ Nouvelle liste</button><button data-close class="ghost">Terminer</button>`);
-    m.onclose = () => onDone && onDone();
-    m.querySelector('#lnew').onclick = async () => { const n = await askName('Nouvelle liste'); if (n) { const dd = listsData(); dd.lists.push({ id: newId(), name: n }); saveLists(dd); } draw(); };
-    draw();
-  });
+// Choix des listes d'un podcast (menu ancré au bouton)
+function listsSheet(feed, onDone, anchor) {
+  const el = popover(anchor, `<div class="phead">Ajouter à une liste</div><div class="lbody"></div>${newRow('Nouvelle liste')}`, onDone); if (!el) return;
+  const setMember = (id, on) => { const dd = listsData(), u = feed.feedUrl, s = new Set(dd.members[u] || []); on ? s.add(id) : s.delete(id); if (s.size) { dd.members[u] = [...s]; dd.pods[u] = podSnap(feed); } else { delete dd.members[u]; delete dd.pods[u]; } saveLists(dd); };
+  const draw = () => {
+    const d = listsData(), mem = d.members[feed.feedUrl] || [];
+    el.querySelector('.lbody').innerHTML = d.lists.length ? d.lists.map(x => `<label class="lrow"><input type="checkbox" data-id="${x.id}"${mem.includes(x.id) ? ' checked' : ''}><span>${esc(x.name)}</span></label>`).join('') : '<p class="dim sm" style="padding:6px 8px;margin:0">Aucune liste : crées-en une ci-dessous.</p>';
+    el.querySelectorAll('input[data-id]').forEach(c => c.onchange = () => setMember(c.dataset.id, c.checked));
+    el.place();
+  };
+  el.querySelector('.pnew').onsubmit = e => { e.preventDefault(); const inp = el.querySelector('.pnew input'), v = inp.value.trim(); if (!v) return; const dd = listsData(), id = newId(); dd.lists.push({ id, name: v }); saveLists(dd); setMember(id, true); inp.value = ''; draw(); };
+  draw(); setTimeout(() => el.querySelector('.pnew input').focus({ preventScroll: true }), 0);
 }
 // ---------- Podcast Index (clé + secret saisis dans Réglages ; synchronisés avec la sauvegarde, au choix de l'utilisateur) ----------
 const piReady = () => true;
@@ -313,7 +327,7 @@ function renderSearch() {
   const bind = list => $('#res').querySelectorAll('.item').forEach((el, i) => {
     el.onclick = ev => {
       if (!list[i].feedUrl) return;
-      if (ev.target.closest('[data-listadd]')) { listsSheet(list[i]); return; }
+      if (ev.target.closest('[data-listadd]')) { listsSheet(list[i], null, ev.target.closest('[data-listadd]')); return; }
       if (ev.target.closest('[data-star]')) { toggleFav(list[i]); setStar(ev.target.closest('[data-star]'), Sync.favs().some(x => x.feedUrl === list[i].feedUrl)); }
       else openFeed(list[i], () => render());
     };
@@ -397,7 +411,7 @@ async function openFeed(f, back) {
     if (!f.title) setTitle(feed.title, back || (() => render()));
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
-      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button> <button id="lists" class="favpill">${IC.list}<span>Listes</span></button></p>` +
+      <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button> <button id="lists" class="favpill">${IC.list}<span>Listes</span></button></p>` +
       `<div class="filters fgrid"><select id="ord"><option value="desc">Récents</option><option value="asc">Anciens</option></select>
         <select id="mind"><option value="0">Toutes durées</option>${[10, 20, 30, 45, 60, 90, 120].map(m => `<option value="${m}">≥ ${m} min</option>`).join('')}</select><select id="rd" hidden><option value="all">Tous</option><option value="unread">Non lus</option><option value="read">Lus</option></select></div><div class="tglrow"><button id="chain" type="button" class="tgl"></button><button id="track" type="button" class="tgl"></button><button id="selbtn" type="button" class="tgl" hidden></button></div><div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="pl">+ Playlist</button><button type="button" data-a="done">Terminer</button></div><div id="eps"></div>`;
     const tgl = (id, ic, label, on) => { const b = $('#' + id); b.innerHTML = labeled(ic, label); b.classList.toggle('on', !!on); b.setAttribute('aria-pressed', !!on); };
@@ -411,7 +425,7 @@ async function openFeed(f, back) {
       const b = ev.target.closest('button[data-a]'); if (!b) return; const act = b.dataset.a;
       if (act === 'all') { if (sel.size >= curListIdx.length) sel.clear(); else curListIdx.forEach(i => sel.add(i)); }
       else if (act === 'done') { selMode = false; sel.clear(); }
-      else if (act === 'pl') { if (!sel.size) return; playlistPicker([...sel].sort((x, y) => x - y).map(i => epSnap(feed.episodes[i], feed))); return; }
+      else if (act === 'pl') { if (!sel.size) return; playlistPicker([...sel].sort((x, y) => x - y).map(i => epSnap(feed.episodes[i], feed)), b); return; }
       else { if (!sel.size) return; const n = sel.size; setProgMany(feed.feedUrl, [...sel].map(i => feed.episodes[i]), act === 'read' ? { r: 1, t: 0 } : { r: 0, t: 0 }); sel.clear(); toast(n + (n > 1 ? ' épisodes marqués ' : ' épisode marqué ') + (act === 'read' ? 'lu' : 'non lu') + (n > 1 ? 's' : '')); }
       showSel(); drawEps();
     };
@@ -443,12 +457,12 @@ async function openFeed(f, back) {
     }; };
     bindSkip('skipin', 'skip.v1'); bindSkip('skipend', 'skipend.v1');
     $('#share').onclick = () => withShare(() => shareFeed(feed));
-    $('#lists').onclick = () => listsSheet(feed, () => { $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'; });
-    $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'; };
+    $('#lists').onclick = () => listsSheet(feed, () => { $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'; }, $('#lists'));
+    $('#fav').onclick = () => { toggleFav(feed); $('#fav').classList.toggle('on', isFav()); $('#fav span').textContent = isFav() ? 'Dans mes coups de cœur' : 'Ajouter aux coups de cœur'; };
     $('#eps').onclick = ev => {
       const el = ev.target.closest('.ep'); if (!el) return;
       if (ev.target.closest('[data-more]')) { el.classList.toggle('open'); return; }
-      if (ev.target.closest('[data-pladd]')) { playlistPicker([epSnap(feed.episodes[el.dataset.i], feed)]); return; }
+      if (ev.target.closest('[data-pladd]')) { playlistPicker([epSnap(feed.episodes[el.dataset.i], feed)], ev.target.closest('[data-pladd]')); return; }
       if (ev.target.closest('[data-read]')) { const e = feed.episodes[el.dataset.i], g = getProg(feed.feedUrl, e) || {}; setProg(feed.feedUrl, e, g.r ? { r: 0, t: 0 } : { r: 1, t: 0 }); drawEps(); return; }
       if (selMode) { const i = +el.dataset.i; sel.has(i) ? sel.delete(i) : sel.add(i); el.classList.toggle('sel', sel.has(i)); showSel(); return; }
       const ep = feed.episodes[el.dataset.i];
