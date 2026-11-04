@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.102';
+const APP_VERSION = '2026-11-04.103';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -335,6 +335,7 @@ const PRODUCERS = [
   ['Le Monde', /\ble monde\b/i], ['Libération', /lib[ée]ration/i], ['Le Figaro', /figaro/i], ['Les Echos', /les [ée]chos/i], ['Brut', /\bbrut\b/i], ['Bayard', /bayard/i], ['Podcastine', /podcastine/i], ['Arte Radio', /arte radio/i],
   ['BBC', /\bbbc\b/i], ['NPR', /\bnpr\b/i], ['Audible', /\baudible\b/i], ['Spotify Studios', /spotify/i],
 ];
+PRODUCERS.sort((a, b) => a[0].localeCompare(b[0], 'fr', { sensitivity: 'base' })); // ordre alphabétique
 let searchProd = '', searchQ = '', filtersOpen = false;
 const seg = (id, opts, val) => `<div class="seg" id="${id}">${opts.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
 const SVG_SEARCH = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
