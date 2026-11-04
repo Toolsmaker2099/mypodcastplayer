@@ -1,3 +1,4 @@
+const APP_VERSION = '2026-11-04.3';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -105,7 +106,12 @@ function renderSettings() {
   view.innerHTML = `<label>Ajouter un flux RSS</label><form id="af" class="row"><input id="rss" placeholder="https://…/feed.xml"><button>Ajouter</button></form><p id="am" class="dim"></p>
   <label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
   <label>Proxy RSS (worker, si un flux est bloqué)</label><input id="cu" value="${esc(c.proxy || '')}" placeholder="https://rss.xxx.workers.dev">
-  <p><button id="cs">Enregistrer le proxy</button></p>`;
+  <p><button id="cs">Enregistrer le proxy</button></p>
+  <label>Application</label><p class="dim">Version ${APP_VERSION}</p><p><button id="upd">Forcer la mise à jour</button></p>`;
+  $('#upd').onclick = async () => {
+    try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); (await caches.keys()).forEach(k => caches.delete(k)); } catch {}
+    location.reload();
+  };
   $('#af').onsubmit = async e => {
     e.preventDefault();
     try { const f = await loadFeed($('#rss').value.trim()); toggleFav({ feedUrl: f.feedUrl, title: f.title, image: f.image }); $('#am').textContent = 'Ajouté : ' + f.title; $('#rss').value = ''; }
@@ -193,7 +199,7 @@ async function refreshFavs() {
 }
 async function checkUpdates() {
   if (!('serviceWorker' in navigator)) return;
-  const reg = await navigator.serviceWorker.register('sw.js');
+  const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
   reg.update().catch(() => {});
 }
 if ('serviceWorker' in navigator) {
