@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.57';
+const APP_VERSION = '2026-11-04.59';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -16,6 +16,7 @@ IC.scan = svg('<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 
 IC.chain = svg('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>', 17);
 IC.track = svg('<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.2 9.5"/>', 17);
 IC.select = svg('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12 3 3 5-6"/>', 17);
+IC.link = svg('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>', 20);
 const labeled = (ic, t) => `${ic}<span>${t}</span>`;
 const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Favori" aria-pressed="${on}">${IC.star}</button>`;
 const setStar = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
@@ -90,9 +91,9 @@ function toggleFav(f) {
   Sync.setFavs(l);
 }
 function render() {
-  setTitle({ favs: 'Favoris', search: 'Recherche', settings: 'Réglages' }[tab]);
+  setTitle({ favs: 'Favoris', search: 'Recherche', add: 'Ajouter', settings: 'Réglages' }[tab]);
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  ({ favs: renderFavs, search: renderSearch, settings: renderSettings })[tab]();
+  ({ favs: renderFavs, search: renderSearch, add: renderAdd, settings: renderSettings })[tab]();
 }
 function renderFavs() {
   const l = Sync.favs();
@@ -170,7 +171,6 @@ function renderSearch() {
   const pi = searchSrc === 'pi', p = piPrefs();
   const active = pi ? [p.lang !== 'fr', !!p.cat, p.sort !== 'rel', p.clean, p.full, !!searchProd].filter(Boolean).length : 0;
   view.innerHTML = `${seg('srcseg', [['apple', 'Apple Podcasts'], ['pi', piReady() ? 'Podcast Index' : 'Podcast Index 🔒']], searchSrc)}
-    <button id="scanbtn" type="button" class="ghost">${IC.scan} Scanner un QR code</button>
     <form id="sf" class="searchbar">${SVG_SEARCH}<input type="search" id="q" placeholder="${pi ? PI_HINT[p.mode] : 'Mot-clé (facultatif)…'}" value="${esc(searchQ)}" enterkeyhint="search"><button>Chercher</button></form>
     ${pi ? '' : `<div class="frow agrow"><span>Catégorie</span><select id="agenre">${APPLE_GENRES.map(([v, l]) => `<option value="${v}"${v === appleGenre() ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`}
     ${pi ? `<div class="scrollx">${seg('modeseg', PI_MODES, p.mode)}</div>
@@ -243,7 +243,6 @@ function renderSearch() {
     refresh();
   });
   if (!pi) $('#agenre').onchange = e => { try { localStorage.setItem('apple.genre', e.target.value); } catch {} run(); };
-  $('#scanbtn').onclick = () => withShare(() => scanQR());
   $('#sf').onsubmit = e => { e.preventDefault(); run(); };
   if (pi) {
     bindSeg('modeseg', v => { savePrefs({ mode: v }); refresh(); });
@@ -263,6 +262,7 @@ async function openFeed(f, back) {
   view.innerHTML = '<p class="dim">Chargement…</p>';
   try {
     const feed = feedCache.get(f.feedUrl) || await loadFeed(f.feedUrl);
+    if (!f.title) setTitle(feed.title, back || (() => render()));
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     view.innerHTML = `<div class="hero"><img src="${esc(feed.image)}" alt=""><div><b>${esc(feed.title)}</b><small>${esc(feed.author)}</small><small class="m">${esc(meta(feed))}</small></div></div>
       <p class="d full">${esc(feed.desc)}</p><div class="skip"><label for="skipin">Sauter au début (secondes)</label><input id="skipin" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipFor(feed.feedUrl) || ''}"></div><div class="skip"><label for="skipend">Sauter à la fin (secondes)</label><input id="skipend" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${skipEndFor(feed.feedUrl) || ''}"></div><p><button id="fav" class="favpill${isFav() ? ' on' : ''}">${IC.star}<span>${isFav() ? 'Dans les favoris' : 'Ajouter aux favoris'}</span></button> <button id="share" class="favpill">${IC.share}<span>Partager</span></button></p>` +
@@ -329,20 +329,30 @@ async function openFeed(f, back) {
     };
   }
 }
+// Page « Ajouter » : tous les moyens d'ajouter un podcast au même endroit.
+function renderAdd() {
+  const card = (ic, t, d, body) => `<section class="acard"><div class="aic">${ic}</div><div class="abody"><h3>${t}</h3><p class="dim">${d}</p>${body}</div></section>`;
+  view.innerHTML =
+    card(SVG_SEARCH, 'Rechercher un podcast', 'Dans les annuaires Apple Podcasts et Podcast Index : par mot-clé, catégorie ou producteur.', '<button type="button" id="a-search" class="abtn">Ouvrir la recherche</button>') +
+    card(IC.scan, 'Scanner un QR code', 'Un podcast partagé par un autre utilisateur de l\'app.', '<button type="button" id="a-scan" class="abtn">Scanner</button>') +
+    card(IC.link, 'Adresse de flux RSS ou lien', 'Colle l\'adresse d\'un flux RSS ou un lien de partage reçu par message.', '<form id="a-form" class="row"><input id="a-url" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="https://…"><button class="abtn">Ouvrir</button></form><p id="a-msg" class="dim"></p>');
+  $('#a-search').onclick = () => { tab = 'search'; render(); };
+  $('#a-scan').onclick = () => withShare(() => scanQR());
+  $('#a-form').onsubmit = e => {
+    e.preventDefault(); const f = feedFromTextSafe($('#a-url').value);
+    if (!f) { $('#a-msg').textContent = 'Adresse invalide : elle doit commencer par https://'; return; }
+    $('#a-msg').textContent = ''; withShare(() => openShared(f));
+  };
+}
+const feedFromTextSafe = t => { try { return typeof feedFromText === 'function' ? feedFromText(t) : (/^https?:\/\//i.test(t.trim()) ? { feedUrl: t.trim(), title: '' } : null); } catch { return null; } };
 function renderSettings() {
   const c = Sync.cfg();
-  view.innerHTML = `<label>Ajouter un flux RSS</label><form id="af" class="row"><input id="rss" placeholder="https://…/feed.xml"><button>Ajouter</button></form><p id="am" class="dim"></p>
-  <label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
+  view.innerHTML = `<label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
   <label>Podcast Index (annuaire)</label><input id="pk" value="${esc(piCfg().key || '')}" placeholder="Clé (API Key)" autocomplete="off" autocapitalize="off" spellcheck="false"><input id="ps" type="password" value="${esc(piCfg().secret || '')}" placeholder="Secret" autocomplete="off"><p><button id="pisave">Enregistrer</button></p><p id="pim" class="dim"></p>
   <label>Application</label><p class="dim">Version ${APP_VERSION}</p><p><button id="upd">Forcer la mise à jour</button></p>`;
   $('#upd').onclick = async () => {
     try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); (await caches.keys()).forEach(k => caches.delete(k)); } catch {}
     location.reload();
-  };
-  $('#af').onsubmit = async e => {
-    e.preventDefault();
-    try { const f = await loadFeed($('#rss').value.trim()); toggleFav({ feedUrl: f.feedUrl, title: f.title, image: f.image }); $('#am').textContent = 'Ajouté : ' + f.title; $('#rss').value = ''; }
-    catch (err) { $('#am').textContent = err.message; }
   };
   const msg = t => { $('#cm').textContent = t; };
   function drawBackup() {
