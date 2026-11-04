@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.37';
+const APP_VERSION = '2026-11-04.38';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -14,7 +14,12 @@ IC.eq = svg('<path d="M5 14v4M9 6v12M13 10v8M17 4v14M21 12v6"/>', 17);
 const labeled = (ic, t) => `${ic}<span>${t}</span>`;
 const starBtn = on => `<button class="ibtn star${on ? ' on' : ''}" data-star aria-label="Favori" aria-pressed="${on}">${IC.star}</button>`;
 const setStar = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); };
-const audio = $('#audio'), view = $('#view');
+const el1 = $('#audio'), el2 = new Audio(), view = $('#view');
+el2.preload = 'none';
+// Deux éléments audio : el1 passe par le traitement audio (mode nuit, visualiseur réel) ; el2 lit tel quel les podcasts dont l'hébergeur bloque l'analyse (CORS).
+let audio = el1;
+const onAudio = (ev, fn, opts) => { const h = e => { if (e.target === audio) fn(e); }; el1.addEventListener(ev, h, opts); el2.addEventListener(ev, h, opts); };
+function useEl(el) { if (audio === el) return; const old = audio; audio = el; old.pause(); old.removeAttribute('src'); old.load(); }
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let tab = 'favs', feedCache = new Map(); // cache mémoire seulement (jamais de progression)
 
@@ -338,21 +343,23 @@ function renderSettings() {
 // ---------- Lecture (toujours depuis 0, rien n'est mémorisé) ----------
 let chain = localStorage.getItem('chain') === '1', curList = [], queue = [], qi = -1, qCtx = null;
 function playAt(i) { if (i < 0 || i >= queue.length) return false; qi = i; play(queue[i], qCtx.show, qCtx.art, qCtx.feedUrl); return true; }
-audio.addEventListener('ended', () => { if (chain) playAt(qi + 1); });
+onAudio('ended', () => { if (chain) playAt(qi + 1); });
 const skipMap = () => { try { return JSON.parse(localStorage.getItem('skip.v1')) || {}; } catch { return {}; } };
 const skipFor = u => +skipMap()[u] || 0;
 const syncNav = () => { $('#prev').disabled = qi <= 0; $('#next').disabled = qi < 0 || qi >= queue.length - 1; };
 $('#prev').onclick = () => playAt(qi - 1); $('#next').onclick = () => playAt(qi + 1);
 const corsBad = new Set(), hostOf = u => { try { return new URL(u).host; } catch { return u; } };
 const note = t => { $('#np-show').textContent = t || curShow; };
-let curShow = '';
+let curShow = '', curSkip = 0;
 function play(ep, show, art, feedUrl) {
   curShow = show;
   syncNav();
-  audio.crossOrigin = ((nightOn || vizReal) && !corsBad.has(hostOf(ep.url))) ? 'anonymous' : null;
-  audio.src = ep.url; note('');
+  const plain = corsBad.has(hostOf(ep.url));
+  useEl(plain ? el2 : el1);
+  audio.crossOrigin = plain ? null : 'anonymous';
+  audio.src = ep.url; note(plain && nightOn ? 'Mode nuit indisponible pour ce podcast.' : '');
   audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
-  const skip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
+  const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast, pas une progression de lecture
   if (skip > 0) audio.addEventListener('canplay', () => { if (audio.duration > skip) audio.currentTime = skip; }, { once: true });
   const cover = (ep.image || art || '').replace(/\d+x\d+bb/, '600x600bb');
   $('#np-art').src = cover; $('#np-art').style.visibility = cover ? 'visible' : 'hidden';
@@ -362,10 +369,10 @@ function play(ep, show, art, feedUrl) {
   }
 }
 const setPlaying = on => $('#player').classList.toggle('playing', on);
-['playing', 'play'].forEach(ev => audio.addEventListener(ev, () => setPlaying(true)));
-['pause', 'ended', 'emptied', 'error'].forEach(ev => audio.addEventListener(ev, () => setPlaying(false)));
-audio.addEventListener('play', () => { $('#pp').innerHTML = IC.pause; navigator.mediaSession && (navigator.mediaSession.playbackState = 'playing'); });
-audio.addEventListener('pause', () => { $('#pp').innerHTML = IC.playBig; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); });
+['playing', 'play'].forEach(ev => onAudio(ev, () => setPlaying(true)));
+['pause', 'ended', 'emptied', 'error'].forEach(ev => onAudio(ev, () => setPlaying(false)));
+onAudio('play', () => { $('#pp').innerHTML = IC.pause; navigator.mediaSession && (navigator.mediaSession.playbackState = 'playing'); });
+onAudio('pause', () => { $('#pp').innerHTML = IC.playBig; navigator.mediaSession && (navigator.mediaSession.playbackState = 'paused'); });
 const seekEl = $('#seek');
 let seeking = false;
 const clock = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(r).padStart(2, '0'); };
@@ -383,9 +390,9 @@ function syncSeek() {
   setRatio(isFinite(d) && d > 0 ? (audio.ended ? 1 : Math.min(1, audio.currentTime / d)) : 0);
 }
 function resetSeek() { seeking = false; setRatio(0); syncTimes(); }
-['loadstart', 'emptied'].forEach(ev => audio.addEventListener(ev, resetSeek));
-['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => audio.addEventListener(ev, syncSeek));
-audio.addEventListener('timeupdate', checkSleep);
+['loadstart', 'emptied'].forEach(ev => onAudio(ev, resetSeek));
+['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'ended'].forEach(ev => onAudio(ev, syncSeek));
+onAudio('timeupdate', checkSleep);
 // Barre de progression maison : active sur toute sa longueur, du premier au dernier pixel.
 const ratioAt = e => { const r = seekEl.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
 const dragTo = e => { const r = ratioAt(e); setRatio(r); syncTimes(r * audio.duration); return r; };
@@ -476,9 +483,9 @@ render(); checkUpdates(); refreshFavs();
   window.addEventListener('appinstalled', () => { box.hidden = true; });
 })();
 
-// ---------- Mode nuit (compresseur : atténue les passages forts) ----------
-// Web Audio exige un fichier servi avec CORS ; sinon le son serait coupé. On teste donc avant de brancher le traitement.
-let nightOn = localStorage.getItem('night') === '1', vizReal = localStorage.getItem('vizreal') === '1', ctx = null, comp = null, makeup = null, analyser = null;
+// ---------- Mode nuit (compresseur) et analyse du son pour le visualiseur ----------
+// Le traitement audio exige un fichier servi avec CORS ; sinon le son serait coupé. Si l'hébergeur le refuse, on relit le fichier sur l'autre élément audio, sans traitement.
+let nightOn = localStorage.getItem('night') === '1', ctx = null, comp = null, makeup = null, analyser = null;
 const nightBtn = $('#night');
 const showNight = () => { nightBtn.innerHTML = labeled(IC.moon, 'Nuit'); nightBtn.classList.toggle('on', nightOn); nightBtn.setAttribute('aria-pressed', nightOn); };
 function nightParams() {
@@ -490,57 +497,29 @@ function nightParams() {
 function buildGraph() {
   if (ctx) return;
   ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const src = ctx.createMediaElementSource(audio);
+  const src = ctx.createMediaElementSource(el1);
   comp = ctx.createDynamicsCompressor(); makeup = ctx.createGain(); analyser = ctx.createAnalyser();
   analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.75;
   src.connect(comp); comp.connect(makeup); makeup.connect(analyser); analyser.connect(ctx.destination);
 }
-function reloadCurrent(play) {
-  if (!audio.src) return;
-  const t = audio.currentTime, u = audio.src;
-  audio.src = u; audio.load();
-  audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = t; } catch {} if (play) audio.play().catch(() => {}); }, { once: true });
-}
 function graphFailed() {
-  // Le fichier n'a pas pu être chargé avec CORS : on mémorise l'hébergeur et on relit sans traitement, sans interrompre l'écoute.
   corsBad.add(hostOf(audio.src));
-  if (!ctx) { audio.crossOrigin = null; note('Traitement audio indisponible pour ce podcast (mode nuit / barres réelles ignorés).'); reloadCurrent(true); return; }
-  alert("Ce podcast n'autorise pas le traitement audio. Il sera relu sans (la page se recharge).");
-  location.reload();
+  const url = audio.src, t = audio.currentTime;
+  useEl(el2); audio.crossOrigin = null; audio.src = url;
+  onceMeta(() => { const at = t > 1 ? t : curSkip; if (at > 0) { try { audio.currentTime = at; } catch {} } });
+  audio.play().catch(() => {});
+  note('Mode nuit et visualiseur réel indisponibles pour ce podcast.');
 }
-// Branche le traitement audio : recharge le fichier avec CORS, puis branche seulement si le chargement réussit.
-function activateGraph() {
-  if (ctx) { ctx.resume(); nightParams(); return; }
+const onceMeta = fn => audio.addEventListener('loadedmetadata', fn, { once: true });
+nightBtn.onclick = () => { nightOn = !nightOn; localStorage.setItem('night', nightOn ? '1' : '0'); showNight(); nightParams(); };
+onAudio('error', () => {
   if (!audio.src) return;
-  const wasPlaying = !audio.paused;
-  audio.crossOrigin = 'anonymous';
-  audio.addEventListener('canplay', () => { buildGraph(); ctx.resume(); nightParams(); }, { once: true });
-  reloadCurrent(wasPlaying);
-}
-nightBtn.onclick = () => {
-  nightOn = !nightOn; localStorage.setItem('night', nightOn ? '1' : '0'); showNight();
-  if (!nightOn) { nightParams(); return; }
-  activateGraph();
-};
-const vizBtn = $('#vizreal');
-function vizNote() {
-  const n = $('#viz-note'); if (!n) return;
-  const bad = audio.src && corsBad.has(hostOf(audio.src));
-  n.textContent = !vizReal ? "Visualiseur : animation simple. Touche « Visualiseur » pour suivre le vrai son."
-    : bad ? "Ce podcast n'autorise pas l'analyse du son : animation simple."
-    : (analyser && ctx && ctx.state === 'running') ? 'Visualiseur synchronisé sur le son du podcast.' : (audio.src ? 'Activation du visualiseur…' : 'Lance un épisode pour voir le visualiseur.');
-}
-setInterval(vizNote, 700);
-const showViz = () => { vizNote(); vizBtn.innerHTML = labeled(IC.eq, 'Visualiseur'); vizBtn.classList.toggle('on', vizReal); vizBtn.setAttribute('aria-pressed', vizReal); };
-vizBtn.onclick = () => { vizReal = !vizReal; localStorage.setItem('vizreal', vizReal ? '1' : '0'); showViz(); if (vizReal) activateGraph(); };
-audio.addEventListener('error', () => {
-  if (!audio.src) return;
-  if ((nightOn || vizReal) && audio.crossOrigin && !corsBad.has(hostOf(audio.src))) { graphFailed(); return; }
+  if (audio === el1 && audio.crossOrigin && !corsBad.has(hostOf(audio.src))) { graphFailed(); return; }
   const c = audio.error ? audio.error.code : 0;
   note('Erreur de lecture' + (c ? ' (code ' + c + ')' : '') + ' : ' + ({ 2: 'réseau', 3: 'décodage', 4: 'fichier non lisible' }[c] || 'inconnue') + '. Touche ▶ pour réessayer.');
 });
-audio.addEventListener('canplay', () => { if ((nightOn || vizReal) && !ctx && audio.crossOrigin) { buildGraph(); ctx.resume(); nightParams(); } else if (ctx) ctx.resume(); });
-showNight(); showViz();
+onAudio('canplay', () => { if (audio === el1 && !ctx && audio.crossOrigin) { buildGraph(); nightParams(); } if (ctx) ctx.resume().catch(() => {}); });
+showNight();
 
 // ---------- Modes du lecteur : normal / réduit (mini) / plein écran avec visualiseur ----------
 (() => {
@@ -567,7 +546,7 @@ showNight(); showViz();
     if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
     const playing = !audio.paused && !audio.ended;
-    const real = vizReal && !!analyser && ctx && ctx.state === 'running' && playing;
+    const real = audio === el1 && !!analyser && ctx && ctx.state === 'running' && playing;
     if (real) { data = data || new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data); }
     // Échelle logarithmique 60 Hz – 8 kHz (la voix n'a presque rien au-dessus), avec gain automatique pour que toutes les barres vivent
     let raw = null;
@@ -610,7 +589,7 @@ showNight(); showViz();
   function tick() {
     requestAnimationFrame(tick);
     if (document.hidden || pl.hidden) return;
-    const live = vizReal && !!analyser && !!ctx && ctx.state === 'running' && !audio.paused && !pl.classList.contains('full');
+    const live = audio === el1 && !!analyser && !!ctx && ctx.state === 'running' && !audio.paused && !pl.classList.contains('full');
     pl.classList.toggle('live', live);
     if (!live) { if (bars[0].style.height) bars.forEach(b => (b.style.height = '')); return; }
     buf = buf || new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(buf);
