@@ -91,6 +91,17 @@ const Sync = (() => {
       await pull();
     } catch (e) { setCfg(c); throw e; }
   }
+  // Partages (listes, playlists) : un enregistrement indépendant sous un code court.
+  async function shareCreate(obj) {
+    const code = newCode(), r = await fetch(BASE + code, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Sauvegarde-Version': 'new' }, body: JSON.stringify({ share: obj }) });
+    if (!r.ok) throw new Error('Serveur ' + r.status);
+    return code;
+  }
+  async function shareGet(code) {
+    const r = await fetch(BASE + String(code).toUpperCase(), { cache: 'no-store' });
+    if (r.status === 404) return null; if (!r.ok) throw new Error('Serveur ' + r.status);
+    return (await r.json()).share || null;
+  }
   function leave() { const c = cfg(); delete c.code; setCfg(c); localStorage.removeItem(VER_KEY); }
-  return { onSettings: null, proxy: () => (DEFAULT_PROXY || cfg().proxy || '').replace(/\/$/, ''), DEFAULT_PROXY, favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
+  return { shareCreate, shareGet, onSettings: null, proxy: () => (DEFAULT_PROXY || cfg().proxy || '').replace(/\/$/, ''), DEFAULT_PROXY, favs, setFavs, pull, cfg, setCfg, enabled, newCode, fmt, create, restore, leave };
 })();

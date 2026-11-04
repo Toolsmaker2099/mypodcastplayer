@@ -10,22 +10,59 @@ function modal(html) {
 }
 // Si le proxy RSS (worker) est configuré, le lien envoyé passe par lui : WhatsApp/Instagram affichent alors le titre et la pochette du podcast.
 const cardUrl = feed => { const p = Sync.proxy(); return p ? p + '/p?add=' + encodeURIComponent(feed.feedUrl) + '&n=' + encodeURIComponent((feed.title || '').slice(0, 60)) + '&to=' + encodeURIComponent(shareUrl(feed)) : shareUrl(feed); };
-async function shareFeed(feed) {
-  const url = shareUrl(feed), link = cardUrl(feed), text = `Écoute « ${feed.title} » : ${link}`;
-  const m = modal(`<h3>Partager</h3><p class="dim sm">${esc(feed.title)}</p><div id="qrbox" class="qrbox">…</div><p class="dim sm">Fais scanner ce code dans l'app (Recherche → Scanner) ou avec l'appareil photo.</p>
-    <div class="shbtns">${navigator.share ? '<button id="shnat" class="favpill">Partager…</button>' : ''}<a class="favpill" id="shwa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">WhatsApp</a><a class="favpill" id="shsms" href="sms:?&body=${encodeURIComponent(text)}">SMS</a><button id="shcp" class="favpill">Copier le lien</button></div><button data-close class="ghost">Fermer</button>`);
-  const nat = m.querySelector('#shnat'); if (nat) nat.onclick = () => navigator.share({ title: feed.title, text: `Écoute « ${feed.title} »`, url: link }).catch(() => {});
-  m.querySelector('#shcp').onclick = async e => { try { await navigator.clipboard.writeText(link); e.target.textContent = 'Lien copié ✓'; } catch { prompt('Copie ce lien :', link); } };
-  try { await shareLoad('vendor/qrcode.js'); const q = qrcode(0, 'L'); q.addData(url); q.make(); m.querySelector('#qrbox').innerHTML = q.createSvgTag({ cellSize: 4, margin: 3, scalable: true }); }
+// Feuille de partage commune (podcasts, listes, playlists) : QR code, WhatsApp, SMS, partage du système, copie du lien.
+async function shareSheet(o) {
+  const m = modal(`<h3>Partager</h3><p class="dim sm">${esc(o.sub)}</p><div id="qrbox" class="qrbox">…</div><p class="dim sm">Fais scanner ce code dans l'app (Ajouter → Scanner) ou avec l'appareil photo.</p>
+    <div class="shbtns">${navigator.share ? '<button id="shnat" class="favpill">Partager…</button>' : ''}<a class="favpill" id="shwa" href="https://wa.me/?text=${encodeURIComponent(o.text)}" target="_blank" rel="noopener">WhatsApp</a><a class="favpill" id="shsms" href="sms:?&body=${encodeURIComponent(o.text)}">SMS</a><button id="shcp" class="favpill">Copier le lien</button></div><button data-close class="ghost">Fermer</button>`);
+  const nat = m.querySelector('#shnat'); if (nat) nat.onclick = () => navigator.share({ title: o.sub, text: o.nativeText, url: o.link }).catch(() => {});
+  m.querySelector('#shcp').onclick = async e => { try { await navigator.clipboard.writeText(o.link); e.target.textContent = 'Lien copié ✓'; } catch { prompt('Copie ce lien :', o.link); } };
+  try { await shareLoad('vendor/qrcode.js'); const q = qrcode(0, 'L'); q.addData(o.url); q.make(); m.querySelector('#qrbox').innerHTML = q.createSvgTag({ cellSize: 4, margin: 3, scalable: true }); }
   catch { m.querySelector('#qrbox').textContent = 'QR code indisponible.'; }
+}
+async function shareFeed(feed) {
+  const url = shareUrl(feed), link = cardUrl(feed);
+  shareSheet({ sub: feed.title, url, link, text: `Écoute « ${feed.title} » : ${link}`, nativeText: `Écoute « ${feed.title} »` });
+}
+// Liste de podcasts ou playlist d'épisodes : enregistrée sur le serveur de sauvegarde sous un code court (lien et QR code restent petits).
+async function shareCollection(kind, name, data) {
+  const isList = kind === 'list', label = isList ? 'Liste' : 'Playlist', n = data.length;
+  let code; try { code = await Sync.shareCreate({ kind, name, data }); } catch (e) { alert('Partage impossible : ' + e.message); return; }
+  const title = `${label} « ${name} »`, desc = `${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''} à découvrir dans l'app Podcasts.`;
+  const base = location.origin + location.pathname.replace(/index\.html$/, ''), url = `${base}?share=${code}&n=${encodeURIComponent(title)}`, p = Sync.proxy();
+  const link = p ? `${p}/p?share=${code}&n=${encodeURIComponent(title)}&d=${encodeURIComponent(desc)}&to=${encodeURIComponent(url)}` : url;
+  shareSheet({ sub: `${title} · ${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''}`, url, link, text: `Écoute ${isList ? 'ma liste' : 'ma playlist'} « ${name} » : ${link}`, nativeText: `${title} sur Podcasts` });
+}
+// Réception d'une liste ou d'une playlist partagée.
+async function importShared(code) {
+  const m = modal('<h3>Partage reçu</h3><p class="dim" id="im-msg">Chargement…</p><div class="lbody" id="im-body"></div><div class="shbtns" id="im-act"></div><button data-close class="ghost">Fermer</button>');
+  const msg = t => { m.querySelector('#im-msg').textContent = t; };
+  let sh; try { sh = await Sync.shareGet(code); } catch { msg('Impossible de charger ce partage (réseau).'); return; }
+  if (!sh || !Array.isArray(sh.data)) { msg('Ce partage est introuvable ou a expiré.'); return; }
+  const isList = sh.kind === 'list', n = sh.data.length;
+  msg(`${isList ? 'Liste' : 'Playlist'} « ${sh.name} » : ${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''}.`);
+  m.querySelector('#im-body').innerHTML = sh.data.slice(0, 12).map(x => `<div class="lrow" style="cursor:default"><span>${esc(x.title)}</span></div>`).join('') + (n > 12 ? `<p class="dim sm">… et ${n - 12} autres</p>` : '');
+  m.querySelector('#im-act').innerHTML = `<button class="abtn" id="im-add">${isList ? 'Ajouter à mes listes' : 'Ajouter à mes playlists'}</button>`;
+  m.querySelector('#im-add').onclick = () => {
+    const name = sh.name;
+    if (isList) {
+      const d = listsData(), id = newId(); d.lists.push({ id, name });
+      sh.data.forEach(f => { if (!f.feedUrl) return; d.members[f.feedUrl] = [...new Set([...(d.members[f.feedUrl] || []), id])]; d.pods[f.feedUrl] = d.pods[f.feedUrl] || f; });
+      saveLists(d); localStorage.setItem('favlist', id); localStorage.setItem('favtab', 'pod');
+    } else {
+      const l = plData(); l.push({ id: newId(), name, items: sh.data.filter(x => x.url) }); savePl(l); localStorage.setItem('favtab', 'pl');
+    }
+    m.close(); tab = 'favs'; render(); toast(`« ${name} » ajoutée`);
+  };
 }
 // Extrait l'adresse du flux d'un lien de partage ou d'une adresse RSS brute.
 function feedFromText(t) {
   t = String(t || '').trim();
-  try { const u = new URL(t), a = u.searchParams.get('add'); if (a) return { feedUrl: a, title: u.searchParams.get('n') || '' }; if (/^https?:$/.test(u.protocol)) return { feedUrl: t, title: '' }; } catch {}
+  try { const u = new URL(t), a = u.searchParams.get('add'), sc = u.searchParams.get('share'); if (sc) return { share: sc }; if (a) return { feedUrl: a, title: u.searchParams.get('n') || '' }; if (/^https?:$/.test(u.protocol)) return { feedUrl: t, title: '' }; } catch {}
   return null;
 }
-function openShared(f) { // tab « shared » : la mise à jour des favoris au démarrage ne remplace pas cette page
+function openShared(f) {
+  if (f.share) { importShared(f.share); return; }
+  // tab « shared » : la mise à jour des favoris au démarrage ne remplace pas cette page
   const prev = tab === 'shared' ? 'favs' : tab; tab = 'shared';
   openFeed(f, () => { tab = prev; render(); });
 }
@@ -68,9 +105,9 @@ async function scanQR() {
 // Mémorisé quelques secondes pour survivre à un rechargement dû à une mise à jour de l'app.
 (() => {
   const q = new URLSearchParams(location.search);
-  let f = q.get('add') ? { feedUrl: q.get('add'), title: q.get('n') || '' } : null;
+  let f = q.get('add') ? { feedUrl: q.get('add'), title: q.get('n') || '' } : q.get('share') ? { share: q.get('share') } : null;
   try { if (f) sessionStorage.setItem('share.pending', JSON.stringify({ f, at: Date.now() })); else { const p = JSON.parse(sessionStorage.getItem('share.pending')); if (p && Date.now() - p.at < 15000) f = p.f; } } catch {}
   if (!f) return;
-  if (q.get('add')) history.replaceState(null, '', location.pathname);
+  if (q.get('add') || q.get('share')) history.replaceState(null, '', location.pathname);
   openShared(f); setTimeout(() => { try { sessionStorage.removeItem('share.pending'); } catch {} }, 6000);
 })();

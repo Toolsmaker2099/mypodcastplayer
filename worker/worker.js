@@ -32,7 +32,7 @@ const tag = (xml, name) => { const m = xml.match(new RegExp('<' + name + '[^>]*>
 async function share(u, env) {
   const feed = u.searchParams.get('add') || '', to = u.searchParams.get('to') || '';
   const okTo = /^https:\/\//.test(to) && (!env.ALLOW_ORIGIN || to.startsWith(env.ALLOW_ORIGIN + '/'));
-  let title = u.searchParams.get('n') || 'Podcast', desc = 'Podcast à écouter dans l\'app Podcasts.', img = '';
+  let title = u.searchParams.get('n') || 'Podcast', desc = u.searchParams.get('d') || 'Podcast à écouter dans l\'app Podcasts.', img = '';
   if (/^https?:\/\//.test(feed)) {
     try {
       const xml = (await (await fetch(feed, { headers: { 'User-Agent': 'Mozilla/5.0 podcast-reader' }, cf: { cacheTtl: 3600 } })).text()).slice(0, 400000);
@@ -42,6 +42,7 @@ async function share(u, env) {
     } catch {}
   }
   const dest = okTo ? to : '';
+  if (!img && dest) img = dest.split('?')[0].replace(/index\.html$/, '') + 'icons/icon-512.png'; // carte sans pochette (liste, playlist) : icône de l'app
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Podcasts"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">${img ? `<meta property="og:image" content="${esc(img)}"><meta name="twitter:image" content="${esc(img)}">` : ''}${dest ? `<meta property="og:url" content="${esc(dest)}">` : ''}
 <meta name="twitter:card" content="summary"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:system-ui;background:#0b0d14;color:#fff;text-align:center;padding:40px">${img ? `<img src="${esc(img)}" width="160" style="border-radius:16px">` : ''}<h2>${esc(title)}</h2>${dest ? `<p><a style="color:#9bb0ff" href="${esc(dest)}">Ouvrir dans l'app Podcasts</a></p><script>location.replace(${JSON.stringify(dest)})</script>` : ''}</body></html>`;

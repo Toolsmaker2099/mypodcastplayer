@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.72';
+const APP_VERSION = '2026-11-04.73';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -123,13 +123,14 @@ function renderPodcastFavs(head) {
   let cur = localStorage.getItem('favlist') || 'all'; if (cur !== 'all' && !d.lists.some(x => x.id === cur)) cur = 'all';
   const l = cur === 'all' ? all : Object.keys(d.members).filter(u => d.members[u].includes(cur)).map(u => d.pods[u] || all.find(f => f.feedUrl === u)).filter(Boolean);
   const chips = `<div class="tglrow lchips"><button type="button" class="tgl${cur === 'all' ? ' on' : ''}" data-l="all">Coups de cœur</button>${d.lists.map(x => `<button type="button" class="tgl${cur === x.id ? ' on' : ''}" data-l="${x.id}">${esc(x.name)}</button>`).join('')}<button type="button" class="tgl" data-l="new">+ Nouvelle liste</button></div>` +
-    (cur !== 'all' ? '<div class="tglrow lmanage"><button type="button" class="tgl" data-l="rename">Renommer</button><button type="button" class="tgl" data-l="delete">Supprimer la liste</button></div>' : '');
+    `<div class="tglrow lmanage">${cur !== 'all' ? '<button type="button" class="tgl" data-l="rename">Renommer</button>' : ''}${l.length ? '<button type="button" class="tgl" data-l="share">Partager</button>' : ''}${cur !== 'all' ? '<button type="button" class="tgl" data-l="delete">Supprimer la liste</button>' : ''}</div>`;
   const empty = cur === 'all' ? '<p class="dim">Aucun coup de cœur. Utilise l\'onglet Ajouter ou la recherche.</p>' : '<p class="dim">Cette liste est vide. Ouvre un podcast des favoris et touche « Listes » pour l\'y ajouter.</p>';
   view.innerHTML = head + chips + (l.length ? l.map(f => cur === 'all' ? showItem(f, true) : showItem(f, false).replace(/<\/div>$/, '<button class="ibtn" data-unlist aria-label="Retirer de la liste">✕</button></div>')).join('') : empty);
   bindFavSeg();
   view.querySelectorAll('[data-l]').forEach(b => b.onclick = async () => {
     const k = b.dataset.l;
     if (k === 'new') { const n = await askName('Nouvelle liste'); if (n) { const dd = listsData(), id = newId(); dd.lists.push({ id, name: n }); saveLists(dd); localStorage.setItem('favlist', id); renderFavs(); } return; }
+    if (k === 'share') { const nm = cur === 'all' ? 'Coups de cœur' : d.lists.find(y => y.id === cur).name; withShare(() => shareCollection('list', nm, l.map(f => ({ ...podSnap(f), desc: (f.desc || '').slice(0, 120) })))); return; }
     if (k === 'rename') { const x = d.lists.find(y => y.id === cur), n = await askName('Renommer la liste', x.name); if (n) { const dd = listsData(); dd.lists.find(y => y.id === cur).name = n; saveLists(dd); renderFavs(); } return; }
     if (k === 'delete') { const x = d.lists.find(y => y.id === cur); if (confirm(`Supprimer la liste « ${x.name} » ? Les podcasts restent dans tes favoris.`)) { const dd = listsData(); dd.lists = dd.lists.filter(y => y.id !== cur); Object.keys(dd.members).forEach(u => { dd.members[u] = dd.members[u].filter(i => i !== cur); if (!dd.members[u].length) delete dd.members[u]; }); saveLists(dd); localStorage.setItem('favlist', 'all'); renderFavs(); } return; }
     localStorage.setItem('favlist', k); renderFavs();
@@ -189,10 +190,11 @@ function openPlaylist(id) {
   const draw = () => {
     const all = plData(), p = all.find(x => x.id === id); if (!p) { back(); return; }
     setTitle(p.name, back);
-    view.innerHTML = `<div class="tglrow"><button type="button" class="abtn" id="plplay">▶ Tout lire</button><button type="button" class="tgl" id="plren">Renommer</button><button type="button" class="tgl" id="pldel">Supprimer</button></div><p class="dim">${p.items.length} épisode${p.items.length > 1 ? 's' : ''}${plTotal(p)}</p>` +
+    view.innerHTML = `<div class="tglrow"><button type="button" class="abtn" id="plplay">▶ Tout lire</button><button type="button" class="tgl" id="plren">Renommer</button><button type="button" class="tgl" id="plshare">Partager</button><button type="button" class="tgl" id="pldel">Supprimer</button></div><p class="dim">${p.items.length} épisode${p.items.length > 1 ? 's' : ''}${plTotal(p)}</p>` +
       (p.items.map((x, i) => `<div class="item ep" data-i="${i}"><div class="t"><b>${esc(x.title)}</b><small class="m">${esc([x.show, fmtDur(x.dur)].filter(Boolean).join(' · '))}</small></div><button class="ibtn" data-up aria-label="Monter"${i === 0 ? ' disabled' : ''}>▲</button><button class="ibtn" data-down aria-label="Descendre"${i === p.items.length - 1 ? ' disabled' : ''}>▼</button><button class="ibtn" data-rm aria-label="Retirer">✕</button><button class="ibtn playb" data-play aria-label="Lire">${IC.play}</button></div>`).join('') || '<p class="dim">Playlist vide. Ajoute des épisodes avec le bouton « + » d\'un épisode.</p>');
     $('#plplay').onclick = () => playPlaylist(p, 0);
     $('#plren').onclick = async () => { const n = await askName('Renommer la playlist', p.name); if (n) { const a2 = plData(); a2.find(x => x.id === id).name = n; savePl(a2); draw(); } };
+    $('#plshare').onclick = () => { if (!p.items.length) return toast('Playlist vide'); withShare(() => shareCollection('playlist', p.name, p.items)); };
     $('#pldel').onclick = () => { if (confirm(`Supprimer la playlist « ${p.name} » ?`)) { savePl(plData().filter(x => x.id !== id)); back(); } };
     view.querySelectorAll('.item.ep').forEach(el => el.onclick = ev => {
       const i = +el.dataset.i, a2 = plData(), q = a2.find(x => x.id === id), it = q.items;
