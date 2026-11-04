@@ -1,3 +1,4 @@
+// Worker rss-proxy — version 74 (proxy RSS, Podcast Index avec PI_KEY/PI_SECRET, cartes de partage /p pour podcasts, listes et playlists)
 // Worker Cloudflare minimal : proxy CORS pour flux RSS (GET /?url=https://…/feed.xml).
 // À déployer séparément du worker « sauvegarde ». ALLOW_ORIGIN (variable) = ex. https://toolsmaker2099.github.io
 export default {
