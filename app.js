@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.13';
+const APP_VERSION = '2026-11-04.14';
 const $ = s => document.querySelector(s);
 const audio = $('#audio'), view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -73,6 +73,29 @@ function renderFavs() {
   view.innerHTML = l.length ? l.map(f => showItem(f, false)).join('') : '<p class="dim">Aucun favori. Utilise la recherche ou ajoute un flux RSS dans Réglages.</p>';
   view.querySelectorAll('.item').forEach((el, i) => el.onclick = () => openFeed(l[i]));
 }
+// ---------- Podcast Index (clé + secret saisis dans Réglages, stockés sur l'appareil seulement) ----------
+const piCfg = () => { try { return JSON.parse(localStorage.getItem('pi.cfg')) || {}; } catch { return {}; } };
+const piReady = () => { const c = piCfg(); return !!(c.key && c.secret); };
+async function piSearch(q) {
+  const c = piCfg(), date = String(Math.floor(Date.now() / 1000));
+  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(c.key + c.secret + date));
+  const auth = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  const headers = { 'X-Auth-Date': date, 'X-Auth-Key': c.key, Authorization: auth };
+  const path = `search/byterm?max=100&q=${encodeURIComponent(q)}`;
+  let r;
+  try { r = await fetch('https://api.podcastindex.org/api/1.0/' + path, { headers }); }
+  catch (e) { // CORS/réseau : repli par le proxy du worker, s'il est configuré
+    const p = Sync.cfg().proxy;
+    if (!p) throw new Error('Podcast Index injoignable depuis le navigateur : configure le proxy (worker) dans Réglages.');
+    r = await fetch(p.replace(/\/$/, '') + '/podcastindex/' + path, { headers });
+  }
+  if (r.status === 401 || r.status === 403) throw new Error('Clé ou secret Podcast Index refusé.');
+  if (!r.ok) throw new Error('Podcast Index ' + r.status);
+  return (await r.json()).feeds || [];
+}
+const piMap = x => ({ feedUrl: x.url, title: x.title, image: x.artwork || x.image, author: x.author || x.ownerName,
+  genre: Object.values(x.categories || {})[0] || '', count: x.episodeCount, last: x.newestItemPubdate ? new Date(x.newestItemPubdate * 1000).toISOString() : '', desc: (x.description || '').replace(/<[^>]*>/g, '').slice(0, 300) });
+let searchSrc = localStorage.getItem('src') || '';
 const PRODUCERS = [
   ['France Inter', /france inter/i], ['France Culture', /france culture/i], ['franceinfo', /franceinfo|france info/i],
   ['France TV', /france t[ée]l[ée]visions|france\.?\s?tv/i], ['Radio France', /radio france|france (inter|culture|info|bleu|musique)|\bmouv|\bfip\b/i],
@@ -80,7 +103,10 @@ const PRODUCERS = [
 ];
 let searchProd = '', searchQ = '';
 function renderSearch() {
-  view.innerHTML = `<form id="sf" class="row"><input type="search" id="q" placeholder="Rechercher un podcast…" value="${esc(searchQ)}"><button>OK</button></form>
+  if (!searchSrc) searchSrc = piReady() ? 'pi' : 'apple';
+  if (searchSrc === 'pi' && !piReady()) searchSrc = 'apple';
+  view.innerHTML = `<div class="chips src"><button type="button" class="chip${searchSrc === 'apple' ? ' on' : ''}" data-s="apple">Apple</button><button type="button" class="chip${searchSrc === 'pi' ? ' on' : ''}" data-s="pi">Podcast Index${piReady() ? '' : ' (clé requise)'}</button></div>
+    <form id="sf" class="row"><input type="search" id="q" placeholder="Rechercher un podcast…" value="${esc(searchQ)}"><button>OK</button></form>
     <div class="chips">${PRODUCERS.map(([n]) => `<button type="button" class="chip${n === searchProd ? ' on' : ''}" data-p="${esc(n)}">${esc(n)}</button>`).join('')}</div><div id="res"></div>`;
   const run = async () => {
     const q = $('#q').value.trim(); searchQ = q;
@@ -88,6 +114,17 @@ function renderSearch() {
     if (!q && !prod) { $('#res').innerHTML = ''; return; }
     $('#res').innerHTML = '<p class="dim">Recherche…</p>';
     try {
+      if (searchSrc === 'pi') {
+        const term = q || prod[0];
+        let feeds = (await piSearch(term)).filter(x => x.url && !x.dead);
+        if (prod) feeds = feeds.filter(x => prod[1].test(x.author || '') || prod[1].test(x.ownerName || '') || prod[1].test(x.title || ''));
+        const list = feeds.slice(0, 50).map(piMap);
+        $('#res').innerHTML = list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat.</p>';
+        $('#res').querySelectorAll('.item').forEach((el, i) => {
+          el.onclick = ev => { if (ev.target.closest('[data-star]')) { toggleFav(list[i]); ev.target.textContent = Sync.favs().some(x => x.feedUrl === list[i].feedUrl) ? '★' : '☆'; } else openFeed(list[i], () => render()); };
+        });
+        return;
+      }
       const url = q ? `https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`
                     : `https://itunes.apple.com/search?media=podcast&limit=200&country=fr&attribute=artistTerm&term=${encodeURIComponent(prod[0])}`;
       const r = await (await fetch(url)).json();
@@ -101,6 +138,11 @@ function renderSearch() {
       });
     } catch (err) { $('#res').innerHTML = `<p class="dim">Erreur : ${esc(err.message)}</p>`; }
   };
+  view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+    if (b.dataset.s === 'pi' && !piReady()) { alert('Saisis ta clé et ton secret Podcast Index dans Réglages.'); return; }
+    searchSrc = b.dataset.s; try { localStorage.setItem('src', searchSrc); } catch {}
+    renderSearch();
+  });
   $('#sf').onsubmit = e => { e.preventDefault(); run(); };
   view.querySelectorAll('.chip').forEach(b => b.onclick = () => {
     searchProd = searchProd === b.dataset.p ? '' : b.dataset.p;
@@ -153,6 +195,7 @@ function renderSettings() {
   const c = Sync.cfg();
   view.innerHTML = `<label>Ajouter un flux RSS</label><form id="af" class="row"><input id="rss" placeholder="https://…/feed.xml"><button>Ajouter</button></form><p id="am" class="dim"></p>
   <label>Sauvegarde des favoris</label><div id="bk"></div><p id="cm" class="dim"></p>
+  <label>Podcast Index (annuaire)</label><input id="pk" value="${esc(piCfg().key || '')}" placeholder="Clé (API Key)" autocomplete="off" autocapitalize="off" spellcheck="false"><input id="ps" type="password" value="${esc(piCfg().secret || '')}" placeholder="Secret" autocomplete="off"><p><button id="pisave">Enregistrer</button></p><p id="pim" class="dim"></p>
   <label>Proxy RSS (worker, si un flux est bloqué)</label><input id="cu" value="${esc(c.proxy || '')}" placeholder="https://rss.xxx.workers.dev">
   <p><button id="cs">Enregistrer le proxy</button></p>
   <label>Application</label><p class="dim">Version ${APP_VERSION}</p><p><button id="upd">Forcer la mise à jour</button></p>`;
@@ -189,6 +232,14 @@ function renderSettings() {
     }
   }
   drawBackup();
+  $('#pisave').onclick = async () => {
+    const c = { key: $('#pk').value.trim(), secret: $('#ps').value.trim() };
+    localStorage.setItem('pi.cfg', JSON.stringify(c));
+    if (!c.key || !c.secret) { $('#pim').textContent = 'Clé et secret requis.'; return; }
+    $('#pim').textContent = 'Test…';
+    try { const n = (await piSearch('france inter')).length; $('#pim').textContent = `OK : ${n} résultats de test.`; searchSrc = 'pi'; localStorage.setItem('src', 'pi'); }
+    catch (e) { $('#pim').textContent = 'Échec : ' + e.message; }
+  };
   $('#cs').onclick = () => { Sync.setCfg({ ...Sync.cfg(), proxy: $('#cu').value.trim() }); msg('Proxy enregistré.'); };
 }
 
