@@ -1,7 +1,7 @@
 name: Deploy Pages
 on:
   push:
-    branches: [main, master, claude/project-thread-bztim3]
+    branches: [main, master]
   workflow_dispatch:
 permissions:
   contents: read
@@ -9,7 +9,7 @@ permissions:
   id-token: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
