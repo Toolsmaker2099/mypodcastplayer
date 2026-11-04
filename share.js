@@ -8,12 +8,14 @@ function modal(html) {
   m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) close(); });
   document.body.appendChild(m); m.close = close; return m;
 }
+// Si le proxy RSS (worker) est configuré, le lien envoyé passe par lui : WhatsApp/Instagram affichent alors le titre et la pochette du podcast.
+const cardUrl = feed => { const p = (Sync.cfg().proxy || '').replace(/\/$/, ''); return p ? p + '/p?add=' + encodeURIComponent(feed.feedUrl) + '&n=' + encodeURIComponent((feed.title || '').slice(0, 60)) + '&to=' + encodeURIComponent(shareUrl(feed)) : shareUrl(feed); };
 async function shareFeed(feed) {
-  const url = shareUrl(feed), text = `Écoute « ${feed.title} » : ${url}`;
+  const url = shareUrl(feed), link = cardUrl(feed), text = `Écoute « ${feed.title} » : ${link}`;
   const m = modal(`<h3>Partager</h3><p class="dim sm">${esc(feed.title)}</p><div id="qrbox" class="qrbox">…</div><p class="dim sm">Fais scanner ce code dans l'app (Recherche → Scanner) ou avec l'appareil photo.</p>
     <div class="shbtns">${navigator.share ? '<button id="shnat" class="favpill">Partager…</button>' : ''}<a class="favpill" id="shwa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">WhatsApp</a><a class="favpill" id="shsms" href="sms:?&body=${encodeURIComponent(text)}">SMS</a><button id="shcp" class="favpill">Copier le lien</button></div><button data-close class="ghost">Fermer</button>`);
-  const nat = m.querySelector('#shnat'); if (nat) nat.onclick = () => navigator.share({ title: feed.title, text: `Écoute « ${feed.title} »`, url }).catch(() => {});
-  m.querySelector('#shcp').onclick = async e => { try { await navigator.clipboard.writeText(url); e.target.textContent = 'Lien copié ✓'; } catch { prompt('Copie ce lien :', url); } };
+  const nat = m.querySelector('#shnat'); if (nat) nat.onclick = () => navigator.share({ title: feed.title, text: `Écoute « ${feed.title} »`, url: link }).catch(() => {});
+  m.querySelector('#shcp').onclick = async e => { try { await navigator.clipboard.writeText(link); e.target.textContent = 'Lien copié ✓'; } catch { prompt('Copie ce lien :', link); } };
   try { await shareLoad('vendor/qrcode.js'); const q = qrcode(0, 'L'); q.addData(url); q.make(); m.querySelector('#qrbox').innerHTML = q.createSvgTag({ cellSize: 4, margin: 3, scalable: true }); }
   catch { m.querySelector('#qrbox').textContent = 'QR code indisponible.'; }
 }
