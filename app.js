@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.81';
+const APP_VERSION = '2026-11-04.82';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -735,6 +735,13 @@ if ('serviceWorker' in navigator) {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdates(); refreshFavs(); } });
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+$('#closep').onclick = () => { // ferme le lecteur : arrête la lecture (la position est enregistrée si le suivi est actif)
+  try { saveProg(true); } catch {}
+  clearTimeout(endT); setSleep(0); audio.pause(); audio.removeAttribute('src'); audio.load();
+  curEp = null; queue = []; qi = -1; curChaps = []; curFeedUrl = ''; $('#player').hidden = true; $('#player').classList.remove('full');
+  if ('mediaSession' in navigator) { try { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } catch {} }
+  document.body.classList.remove('hasplayer'); syncNav();
+};
 $('#speed').onclick = () => speedMenu($('#speed')); $('#info').onclick = () => { if (curEp) epInfo(curEp, curShow, '', curFeedUrl); else toast('Aucun épisode en cours'); };
 dlInit().then(() => { if (tab === 'favs') renderFavs(); }); applyRate();
 render(); checkUpdates(); refreshFavs();
