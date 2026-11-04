@@ -229,3 +229,13 @@ select[data-dd]{display:none!important}
 .tgl.on{color:#fff;background:linear-gradient(135deg,rgba(111,134,255,.38),rgba(176,114,255,.3));border-color:rgba(165,185,255,.65);box-shadow:0 0 14px rgba(143,162,255,.25)}
 .tgl[hidden]{display:none}
 .filters.fgrid .ddb{padding:12px 14px;font-size:15px}.filters.fgrid select{font-size:15px}
+/* Ordinateur : navigation en onglets en haut (plus de barre flottante en bas) */
+@media (min-width:900px) and (hover:hover) and (pointer:fine){
+  nav{top:14px;bottom:auto;width:auto;padding:0;background:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none;gap:6px}
+  nav button{flex:none;position:relative;padding:11px 20px;border-radius:12px;font-size:15px;font-weight:600}
+  nav .on{background:none;color:#fff}
+  nav .on::after{content:"";position:absolute;left:20px;right:20px;bottom:3px;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--acc),var(--acc2));box-shadow:0 0 10px rgba(155,176,255,.6)}
+  nav button:not(.on):hover{background:rgba(255,255,255,.06);color:var(--fg)}
+  #player{bottom:calc(18px + env(safe-area-inset-bottom))}
+  main{padding-bottom:200px}
+}
