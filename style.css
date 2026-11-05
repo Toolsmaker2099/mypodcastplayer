@@ -412,3 +412,8 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 .epq{width:100%;box-sizing:border-box;margin:6px 0 10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:inherit;font:inherit}
 
 .liveradio #ad{display:none!important}
+/* plein écran : le contenu ne doit jamais passer sous les boutons du haut */
+#player.full{justify-content:safe center;overflow-y:auto;padding-top:calc(70px + env(safe-area-inset-top))}
+#player.full #np-art{width:min(74vw,32vh,360px)}
+#player.full #viz{height:72px;margin-bottom:12px}
+@media (max-height:760px){#player.full #np-art{width:min(60vw,26vh,300px);margin-bottom:12px}#player.full #viz{height:56px}}
