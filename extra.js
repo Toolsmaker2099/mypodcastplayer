@@ -44,6 +44,7 @@ async function dlFetch(u, onProg) {
   throw last || new Error('échec');
 }
 async function dlAdd(snap, auto) {
+  if (!auto && wifiOnly() && onCellular() && !confirm('Tu es en données mobiles. Télécharger quand même ?')) return;
   if (dlObj.has(snap.url) || dlBusy.has(snap.url)) return;
   dlBusy.set(snap.url, 0); dlRefresh(snap.url);
   try {
@@ -66,7 +67,7 @@ let dlAutoRunning = false;
 async function dlAutoRun() {
   if (dlAutoRunning) return; dlAutoRunning = true;
   try {
-    const cn = navigator.connection; if (cn && (cn.saveData || cn.type === 'cellular')) return;
+    if (wifiOnly() && onCellular()) return; // réglage « Wi-Fi seulement » (activable / désactivable dans Réglages)
     const auto = xget('dl.auto.v1', {});
     for (const [fu, n] of Object.entries(auto)) {
       const feed = feedCache.get(fu); if (!feed || !n) continue;
@@ -273,7 +274,7 @@ async function radSearch(q) {
   }
   throw lastErr || new Error('indisponible');
 }
-const radRow = (r, i) => `<div class="item radio" data-i="${i}"><img src="${esc(r.logo)}" alt="" onerror="this.style.visibility='hidden'"><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
+const radRow = (r, i, link) => `<div class="item radio" data-i="${i}"><img src="${esc(r.logo)}" alt="" onerror="this.style.visibility='hidden'"><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${link ? '<button class="ibtn" data-rlink aria-label="Copier un lien de raccourci" title="Copier un lien de raccourci">🔗</button>' : ''}${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
 // mode : 'lib' (mes radios), 'quick' (accueil : mes radios + Radio France), 'find' (Découvrir : recherche + suggestions)
 function renderRadios(head, mode = 'lib') {
   const find = mode === 'find';
@@ -282,10 +283,11 @@ function renderRadios(head, mode = 'lib') {
   let list = [];
   const bindRows = () => view.querySelectorAll('.item.radio').forEach(el => el.onclick = ev => {
     const r = list[+el.dataset.i];
+    if (ev.target.closest('[data-rlink]')) { copyText(radioLink(r), 'Lien de raccourci copié'); return; }
     if (ev.target.closest('[data-rfav]')) { radToggle(r); setStar(ev.target.closest('[data-rfav]'), radIsFav(r)); return; }
     playRadio(r);
   });
-  const show = (title, l, msg) => { list = l; $('#radout').innerHTML = (title ? `<h3 class="sect">${title}</h3>` : '') + (l.length ? l.map(radRow).join('') : `<p class="dim">${msg}</p>`); bindRows(); };
+  const show = (title, l, msg) => { list = l; $('#radout').innerHTML = (title ? `<h3 class="sect">${title}</h3>` : '') + (l.length ? l.map((r, i) => radRow(r, i, mode === 'lib')).join('') : `<p class="dim">${msg}</p>`); bindRows(); };
   const home = () => {
     const f = radFavs();
     if (!find) show('', f, 'Aucune radio en coup de cœur. Trouve des radios dans l\'onglet Découvrir (Radios), puis touche le cœur.');
@@ -303,10 +305,173 @@ function renderRadios(head, mode = 'lib') {
 function renderHome() {
   const ft = ['q', 'new', 'radio'].includes(localStorage.getItem('hometab')) ? localStorage.getItem('hometab') : 'q', nn = newTotal(), qn = qGet().length;
   const playing = !$('#player').hidden && curEp;
-  const resume = playing ? `<div class="resumecard"><div class="t"><small>En cours</small><b>${esc(curEp.title)}</b></div><button type="button" id="resume" class="abtn">${audio.paused ? '▶ Reprendre' : '⏸ Pause'}</button></div>` : '';
+  const last = lastGet();
+  const resume = !playing && last ? `<div class="resumecard"><div class="t"><small>Dernier épisode</small><b>${esc(last.title)}</b><small>${esc(last.show || '')} · à ${hms(last.t)}</small></div><button type="button" id="resume" class="abtn">▶ Reprendre</button></div>` : playing ? `<div class="resumecard"><div class="t"><small>En cours</small><b>${esc(curEp.title)}</b></div><button type="button" id="resume" class="abtn">${audio.paused ? '▶ Reprendre' : '⏸ Pause'}</button></div>` : '';
   setTimeout(refreshNewBadge, 0);
-  const head = resume + `<div class="favsegw">${seg('favseg', [['q', 'À écouter' + (qn ? ' ' + qn : '')], ['new', 'Nouveautés' + (nn ? ' ' + nn : '')], ['radio', 'Radios']], ft)}</div>`;
+  const head = resume + shortcutsHtml() + `<div class="favsegw">${seg('favseg', [['q', 'À écouter' + (qn ? ' ' + qn : '')], ['new', 'Nouveautés' + (nn ? ' ' + nn : '')], ['radio', 'Radios']], ft)}</div>`;
   if (ft === 'new') { renderNew(head); return; }
   if (ft === 'radio') { renderRadios(head, 'quick'); return; }
   renderQueue(head);
+}
+
+// ---------- Confort : retour automatique, signets, recherche dans la bibliothèque, Wi-Fi, raccourcis ----------
+const rwSecs = () => { const v = localStorage.getItem('rewind'); return v == null ? 5 : (+v || 0); };
+const wifiOnly = () => localStorage.getItem('dl.wifi') !== '0';
+const onCellular = () => { const c = navigator.connection; return !!(c && (c.type === 'cellular' || c.saveData)); };
+const RW_OPTS = [['0', 'Non'], ['3', '3 s'], ['5', '5 s'], ['10', '10 s'], ['15', '15 s']];
+const copyText = async (t, msg) => { try { await navigator.clipboard.writeText(t); toast(msg); } catch { prompt('Copie ce lien :', t); } };
+const b64e = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64d = s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
+const baseUrl = () => location.origin + location.pathname;
+const radioLink = r => baseUrl() + '#go=radio&u=' + encodeURIComponent(r.url) + '&n=' + encodeURIComponent(r.name);
+// Dernier épisode écouté (local) : carte « Reprendre » de l'accueil
+const lastGet = () => xget('last.v1', null);
+function saveLast() {
+  if (!curEp || curEp.live || !audio.src || !(audio.currentTime > 3)) return;
+  try { localStorage.setItem('last.v1', JSON.stringify({ u: curEp.url, title: curEp.title, dur: curEp.dur || '', image: curEp.image || '', date: curEp.date || '', show: curShow, art: (qCtx && qCtx.art) || '', feed: curFeedUrl, t: Math.floor(audio.currentTime) })); } catch {}
+}
+function playMoment(o) { // o : {u, title, show, art, image, feed, t}
+  queue = [{ title: o.title, url: o.u, dur: '', image: o.image || '', _show: o.show || '', _art: o.art || '', _feed: o.feed || '' }]; qi = 0;
+  qCtx = { show: o.show || '', art: o.art || '', feedUrl: o.feed || '', auto: false }; playStartOverride = o.t || 0; playAt(0);
+}
+const playLast = () => { const l = lastGet(); if (l) playMoment(l); };
+// Signets
+const bmGet = () => xget('bm.v1', []);
+function bmAdd() {
+  if (!curEp || curEp.live) return;
+  const l = bmGet(); l.unshift({ id: newId(), u: curEp.url, title: curEp.title, show: curShow, art: (qCtx && qCtx.art) || '', image: curEp.image || '', feed: curFeedUrl, t: Math.floor(audio.currentTime), at: Date.now() });
+  xset('bm.v1', l); toast('Signet ajouté à ' + hms(audio.currentTime));
+}
+const bmLink = b => baseUrl() + '#m=' + b64e({ u: b.u, n: b.title, s: b.show, a: b.art, i: b.image, f: b.feed, t: b.t });
+async function bmShare(b) {
+  const url = bmLink(b), title = `${b.title} (à ${hms(b.t)})`;
+  if (navigator.share) { try { await navigator.share({ title, text: title, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  copyText(url, 'Lien copié');
+}
+function renderBookmarks(head) {
+  const l = bmGet();
+  view.innerHTML = head + (l.length ? '<p class="dim sm">Touche un signet pour reprendre à ce moment. Dans le lecteur, le bouton « Signet » en ajoute un.</p>' + l.map(b => rowHtml({ title: b.title, show: b.show, image: b.image || b.art, extra: `<small class="m">à ${hms(b.t)}</small>` }, `<button class="ibtn" data-bshare aria-label="Partager ce moment">↗</button><button class="ibtn" data-rm aria-label="Supprimer">🗑</button><button class="ibtn playb" data-play aria-label="Lire">${IC.play}</button>`)).join('') : '<p class="dim">Aucun signet. Pendant l\'écoute d\'un épisode, touche « Signet » dans le lecteur pour marquer un passage.</p>');
+  bindFavSeg();
+  view.querySelectorAll('.xrow').forEach((el, i) => el.onclick = ev => {
+    if (ev.target.closest('[data-rm]')) { const a = bmGet(); a.splice(i, 1); xset('bm.v1', a); renderBookmarks(head); return; }
+    if (ev.target.closest('[data-bshare]')) { bmShare(l[i]); return; }
+    playMoment(l[i]);
+  });
+}
+// Recherche dans la bibliothèque
+let libQ = '';
+const nrm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function libBind() {
+  const f = $('#libsf'); if (!f) return;
+  f.onsubmit = e => e.preventDefault();
+  view.insertAdjacentHTML('beforeend', '<div id="libres"></div>');
+  $('#libq').oninput = e => { libQ = e.target.value; libResults(); };
+  libResults();
+}
+function libResults() {
+  const box = $('#libres'); if (!box) return;
+  const q = nrm(libQ.trim()); view.classList.toggle('libq', !!q);
+  if (!q) { box.innerHTML = ''; return; }
+  const has = (...s) => s.some(v => nrm(v).includes(q));
+  const d = listsData(), pods = [...Sync.favs(), ...Object.values(d.pods)].filter((f, i, a) => a.findIndex(y => y.feedUrl === f.feedUrl) === i).filter(f => has(f.title, f.author));
+  const rads = radFavs().filter(r => has(r.name));
+  const seen = new Set(), eps = [];
+  const add = s => { if (s && s.url && !seen.has(s.url) && has(s.title, s.show)) { seen.add(s.url); eps.push(s); } };
+  Sync.favs().forEach(f => { const fd = feedCache.get(f.feedUrl); if (fd) fd.episodes.forEach(e => add(epSnap(e, fd))); });
+  [...dlMeta.values()].forEach(add); qGet().forEach(add); plData().forEach(p => p.items.forEach(add));
+  const epl = eps.slice(0, 40);
+  box.innerHTML = (pods.length ? '<h3 class="sect">Podcasts</h3>' + pods.map((f, i) => `<div class="item" data-pod="${i}"><img src="${esc(f.image || '')}" alt=""><div class="t"><b>${esc(f.title)}</b><small>${esc(f.author || '')}</small></div></div>`).join('') : '')
+    + (rads.length ? '<h3 class="sect">Radios</h3>' + rads.map((r, i) => radRow(r, i)).join('') : '')
+    + (epl.length ? `<h3 class="sect">Épisodes${eps.length > 40 ? ' (40 premiers)' : ''}</h3>` + epl.map(s => rowHtml(s, `<button class="ibtn playb" data-play aria-label="Lire">${IC.play}</button>`)).join('') : '')
+    + (!pods.length && !rads.length && !epl.length ? '<p class="dim">Rien trouvé dans ta bibliothèque. Pour chercher de nouveaux podcasts ou radios, utilise l\'onglet Découvrir.</p>' : '');
+  box.onclick = ev => {
+    const p = ev.target.closest('[data-pod]'); if (p) { openFeed(pods[+p.dataset.pod]); return; }
+    const r = ev.target.closest('.item.radio'); if (r) { const rr = rads[+r.dataset.i]; if (ev.target.closest('[data-rfav]')) { radToggle(rr); setStar(ev.target.closest('[data-rfav]'), radIsFav(rr)); } else playRadio(rr); return; }
+    const x = ev.target.closest('.xrow'); if (x) { const i = [...box.querySelectorAll('.xrow')].indexOf(x); if (i >= 0) playList([epl[i]], 0); }
+  };
+}
+// Réglages : retour automatique, Wi-Fi, espace
+const settingsExtraHtml = () => `<label>Lecture</label><p class="dim sm">Retour automatique à la reprise (après une pause)</p>${seg('rwseg', RW_OPTS, String(rwSecs()))}
+  <label>Téléchargements</label><p><button type="button" id="wifi" class="tgl${wifiOnly() ? ' on' : ''}">Wi-Fi seulement : ${wifiOnly() ? 'activé' : 'désactivé'}</button></p><p class="dim sm">Activé : les téléchargements automatiques n'utilisent pas les données mobiles, et un téléchargement manuel demande confirmation.</p>
+  <p id="stor" class="dim sm"></p><p><button id="dl-clear" type="button">Supprimer tous les téléchargements</button></p>
+  <label>Raccourcis</label><p class="dim sm">Les raccourcis se règlent sur la page Accueil (Ajouter / Modifier). En plus, un appui long sur l'icône de l'app propose Reprendre, À écouter, Radios et Découvrir.</p>`;
+function bindSettingsExtra() {
+  const rs = $('#rwseg'); if (rs) rs.onclick = e => { const b = e.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('rewind', b.dataset.v); rs.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
+  const w = $('#wifi'); if (w) w.onclick = () => { const on = !wifiOnly(); localStorage.setItem('dl.wifi', on ? '1' : '0'); w.classList.toggle('on', on); w.textContent = 'Wi-Fi seulement : ' + (on ? 'activé' : 'désactivé'); };
+  const st = async () => {
+    const el = $('#stor'); if (!el) return; const tot = [...dlMeta.values()].reduce((n, s) => n + (s.size || 0), 0);
+    let q = ''; try { const e = await navigator.storage.estimate(); q = ` · espace utilisé par l'app : ${fmtSize(e.usage || 0)} sur ${fmtSize(e.quota || 0)} disponibles`; } catch {}
+    el.textContent = `Hors ligne : ${dlMeta.size} épisode${dlMeta.size > 1 ? 's' : ''} (${fmtSize(tot)})${q}`;
+  };
+  st();
+  const c = $('#dl-clear'); if (c) c.onclick = async () => { if (!dlMeta.size || !confirm('Supprimer tous les épisodes téléchargés ?')) return; for (const u of [...dlMeta.keys()]) await dlRemove(u); st(); toast('Téléchargements supprimés'); };
+}
+// Liens directs (raccourcis de l'icône, moments partagés, radios)
+function handleHash() {
+  const h = location.hash; if (!h || h.length < 4) return;
+  const p = new URLSearchParams(h.slice(1)); history.replaceState(null, '', location.pathname + location.search);
+  const go = (t, key, val) => { tab = t; if (key) localStorage.setItem(key, val); render(); };
+  if (p.get('m')) {
+    let o; try { o = b64d(p.get('m')); } catch { return; }
+    const m = modal(`<h3>Moment partagé</h3><p><b>${esc(o.n || '')}</b></p><p class="dim">${esc(o.s || '')} · à ${hms(o.t || 0)}</p><div class="shbtns"><button class="abtn" id="mm-play">▶ Écouter à ce moment</button></div><button data-close class="ghost">Fermer</button>`);
+    m.querySelector('#mm-play').onclick = () => { m.close(); playMoment({ u: o.u, title: o.n, show: o.s, art: o.a, image: o.i, feed: o.f, t: o.t }); };
+    return;
+  }
+  const g = p.get('go');
+  if (g === 'resume' || g === 'queue') go('home', 'hometab', 'q');
+  else if (g === 'radios') go('favs', 'favtab', 'radio');
+  else if (g === 'search') go('search');
+  else if (g === 'radio' && p.get('u')) { go('favs', 'favtab', 'radio'); playRadio({ name: p.get('n') || 'Radio', url: p.get('u'), logo: '', rf: rfFor(p.get('n'), p.get('u')) }); }
+}
+// Branchements sur le lecteur (appelé une fois par app.js, après la création de l'élément audio)
+function bootExtra() {
+  let pausedAt = 0, lastT = 0;
+  onAudio('pause', () => { if (!audio.ended && curEp && !curEp.live) pausedAt = Date.now(); saveLast(); });
+  onAudio('play', () => {
+    if (pausedAt && curEp && !curEp.live) { const gap = Date.now() - pausedAt, s = rwSecs(); if (s && gap > 5000 && audio.currentTime > s + 1) { try { audio.currentTime -= gap > 300000 ? Math.min(2 * s, 30) : s; } catch {} } }
+    pausedAt = 0;
+  });
+  onAudio('timeupdate', () => { const n = Date.now(); if (n - lastT > 10000) { lastT = n; saveLast(); } });
+  const bm = document.getElementById('bm'); if (bm) bm.onclick = bmAdd;
+  addEventListener('hashchange', handleHash); setTimeout(handleHash, 400);
+}
+
+// ---------- Raccourcis personnalisables de l'accueil (synchronisés) ----------
+const scGet = () => xget('shortcuts.v1', []);
+let scEdit = false;
+function shortcutsHtml() {
+  const l = scGet(), tile = (s, i) => `<button type="button" class="sctile" data-sc="${i}">${s.img ? `<img src="${esc(s.img)}" alt="" onerror="this.remove()">` : `<span class="scini">${esc((s.name || '?').trim().charAt(0).toUpperCase())}</span>`}<span class="scn">${esc(s.name)}</span>${scEdit ? '<i class="scx" aria-hidden="true">✕</i>' : ''}</button>`;
+  return `<div class="shortcuts"><div class="shhead"><b>Raccourcis</b><span><button type="button" class="tgl" id="scadd">＋ Ajouter</button>${l.length ? `<button type="button" class="tgl${scEdit ? ' on' : ''}" id="scedit">${scEdit ? 'Terminé' : 'Modifier'}</button>` : ''}</span></div>${l.length ? `<div class="shgrid">${l.map(tile).join('')}</div>` : '<p class="dim sm">Ajoute tes radios, podcasts, listes ou playlists préférés pour les lancer en un geste.</p>'}</div>`;
+}
+function bindShortcuts() {
+  const l = scGet();
+  const ed = $('#scedit'); if (ed) ed.onclick = () => { scEdit = !scEdit; renderFavs(); };
+  const ad = $('#scadd'); if (ad) ad.onclick = scPicker;
+  document.querySelectorAll('.sctile').forEach(b => b.onclick = () => {
+    const i = +b.dataset.sc, s = l[i]; if (!s) return;
+    if (scEdit) { l.splice(i, 1); xset('shortcuts.v1', l); renderFavs(); return; }
+    if (s.k === 'radio') playRadio({ id: s.url, name: s.name, url: s.url, logo: s.img || '', rf: s.rf || rfFor(s.name, s.url), tags: s.tags || '' });
+    else if (s.k === 'pod') openFeed(s.pod);
+    else if (s.k === 'pl') { const p = plData().find(x => x.id === s.id); if (p) { if (p.items.length) playPlaylist(p); else toast('Playlist vide'); } else toast('Playlist introuvable'); }
+    else if (s.k === 'list') { tab = 'favs'; localStorage.setItem('favtab', 'pod'); localStorage.setItem('favlist', s.id); render(); }
+  });
+}
+function scPicker() {
+  const have = new Set(scGet().map(s => s.k + ':' + (s.url || s.id || (s.pod && s.pod.feedUrl)))), items = [];
+  const rads = radFavs(); rads.forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: r.logo, rf: r.rf, tags: r.tags }]));
+  RADIO_FR.filter(r => !rads.some(x => x.url === r.url)).forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: '', rf: r.rf }]));
+  Sync.favs().forEach(f => items.push(['Podcasts', { k: 'pod', name: f.title, img: f.image, pod: podSnap(f) }]));
+  listsData().lists.forEach(x => items.push(['Listes de podcasts', { k: 'list', id: x.id, name: x.name }]));
+  plData().forEach(p => items.push(['Playlists', { k: 'pl', id: p.id, name: p.name }]));
+  const key = s => s.k + ':' + (s.url || s.id || (s.pod && s.pod.feedUrl));
+  const groups = {}; items.filter(([, s]) => !have.has(key(s))).forEach(([g, s], n) => (groups[g] = groups[g] || []).push([s, n]));
+  const flat = items.filter(([, s]) => !have.has(key(s))).map(([, s]) => s);
+  let html = '<h3>Ajouter un raccourci</h3>'; let n = 0;
+  for (const g of ['Radios', 'Podcasts', 'Listes de podcasts', 'Playlists']) {
+    const arr = flat.map((s, i) => [s, i]).filter(([s]) => ({ radio: 'Radios', pod: 'Podcasts', list: 'Listes de podcasts', pl: 'Playlists' }[s.k] === g));
+    if (arr.length) html += `<h4 class="sect">${g}</h4><div class="chips wrap">${arr.map(([s, i]) => `<button type="button" class="chip" data-i="${i}">${esc(s.name)}</button>`).join('')}</div>`;
+  }
+  if (!flat.length) html += '<p class="dim">Rien à ajouter pour l\'instant : mets des radios ou des podcasts en favoris, ou crée une playlist.</p>';
+  const m = modal(html + '<button data-close class="ghost">Fermer</button>');
+  m.querySelectorAll('.chip').forEach(b => b.onclick = () => { const l = scGet(); l.push(flat[+b.dataset.i]); xset('shortcuts.v1', l); m.close(); if (tab === 'home') renderFavs(); toast('Raccourci ajouté'); });
 }

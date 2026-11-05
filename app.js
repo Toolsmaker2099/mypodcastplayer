@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-05.112';
+const APP_VERSION = '2026-11-05.114';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -127,17 +127,20 @@ function askName(title, value = '') {
 }
 function renderFavs() { if (tab === 'home') renderHome(); else renderLibrary(); }
 function renderLibrary() {
-  const ft = ['pod', 'pl', 'radio', 'dl'].includes(localStorage.getItem('favtab')) ? localStorage.getItem('favtab') : 'pod';
-  const head = `<div class="favsegw">${seg('favseg', [['pod', 'Podcasts'], ['pl', 'Playlists'], ['radio', 'Radios'], ['dl', 'Hors ligne']], ft)}</div>`;
-  if (ft === 'dl') { renderDownloads(head); return; }
-  if (ft === 'radio') { renderRadios(head, 'lib'); return; }
-  if (ft === 'pl') { renderPlaylists(); view.insertAdjacentHTML('afterbegin', head); bindFavSeg(); return; }
-  renderPodcastFavs(head);
+  const ft = ['pod', 'pl', 'radio', 'bm', 'dl'].includes(localStorage.getItem('favtab')) ? localStorage.getItem('favtab') : 'pod';
+  const head = `<div class="libhead"><form class="searchbar libsb" id="libsf">${SVG_SEARCH}<input type="search" id="libq" placeholder="Rechercher dans ma bibliothèque" value="${esc(libQ)}" autocomplete="off" enterkeyhint="search"></form><div class="favsegw">${seg('favseg', [['pod', 'Podcasts'], ['pl', 'Playlists'], ['radio', 'Radios'], ['bm', 'Signets'], ['dl', 'Hors ligne']], ft)}</div></div>`;
+  if (ft === 'dl') renderDownloads(head);
+  else if (ft === 'bm') renderBookmarks(head);
+  else if (ft === 'radio') renderRadios(head, 'lib');
+  else if (ft === 'pl') { renderPlaylists(); view.insertAdjacentHTML('afterbegin', head); bindFavSeg(); }
+  else renderPodcastFavs(head);
+  libBind();
 }
 function bindFavSeg() {
   document.querySelectorAll('#favseg button').forEach(b => { const m = b.textContent.match(/^(.*\D) (\d+)$/); if (m) b.innerHTML = esc(m[1]) + ' <span class="cnt">' + m[2] + '</span>'; }); // le nombre devient une pastille
   const s = $('#favseg'); if (s) s.onclick = e => { const b = e.target.closest('button[data-v]'); if (b) { localStorage.setItem(tab === 'home' ? 'hometab' : 'favtab', b.dataset.v); renderFavs(); } };
-  const r = $('#resume'); if (r) r.onclick = () => { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); setTimeout(renderFavs, 150); };
+  if (tab === 'home') bindShortcuts();
+  const r = $('#resume'); if (r) r.onclick = () => { if (!curEp || $('#player').hidden) playLast(); else if (audio.paused) audio.play().catch(() => {}); else audio.pause(); setTimeout(renderFavs, 250); };
 }
 function renderPodcastFavs(head) {
   const all = Sync.favs(), d = listsData();
@@ -572,8 +575,8 @@ const feedFromTextSafe = t => { try { return typeof feedFromText === 'function' 
 function renderSettings() {
   const c = Sync.cfg();
   view.innerHTML = `<label>Sauvegarde en ligne</label><div id="bk"></div><p id="cm" class="dim"></p>
-  <label>Application</label><p class="dim">Version ${APP_VERSION}</p>${isInstalled() ? '<p class="dim">✓ Application installée sur cet appareil</p>' : '<p><button id="inst-set" type="button">Installer l\'app</button></p>'}<p><button id="upd">Forcer la mise à jour</button></p><label>Mes données</label><p><button id="opml-x" type="button">Exporter mes favoris (OPML)</button></p>`;
-  $('#opml-x').onclick = opmlExport;
+  <label>Application</label><p class="dim">Version ${APP_VERSION}</p>${isInstalled() ? '<p class="dim">✓ Application installée sur cet appareil</p>' : '<p><button id="inst-set" type="button">Installer l\'app</button></p>'}<p><button id="upd">Forcer la mise à jour</button></p>${settingsExtraHtml()}<label>Mes données</label><p><button id="opml-x" type="button">Exporter mes favoris (OPML)</button></p>`;
+  $('#opml-x').onclick = opmlExport; bindSettingsExtra();
   if ($('#inst-set')) { $('#inst-set').onclick = installApp; refreshInstallUi(); }
   $('#upd').onclick = async () => {
     try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); (await caches.keys()).forEach(k => caches.delete(k)); } catch {}
@@ -908,6 +911,7 @@ onAudio('waiting', () => { clearTimeout(stallT); stallT = setTimeout(() => { if 
 onAudio('stalled', () => { clearTimeout(stallT); stallT = setTimeout(() => { if (!audio.paused && audio.readyState < 3) reconnect(); }, 25000); });
 onAudio('error', () => { const c = audio.error ? audio.error.code : 0; if (audio.src && (c === 2 || c === 4 || c === 0) && !(audio === el1 && audio.crossOrigin && !corsBad.has(hostOf(audio.src)))) reconnect(); });
 addEventListener('online', () => { if (audio.src && audio.error) { rcN = 0; reconnect(); } });
+bootExtra();
 setInterval(() => { if (ctx && ctx.state === 'suspended' && !audio.paused) ctx.resume().catch(() => {}); }, 8000); // le mode Nuit ne doit pas couper le son quand Android suspend le contexte audio
 onAudio('canplay', () => { if (audio === el1 && !ctx && audio.crossOrigin) { buildGraph(); nightParams(); } if (ctx) ctx.resume().catch(() => {}); });
 showNight();

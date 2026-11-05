@@ -15,7 +15,7 @@ const Sync = (() => {
   const KIND = {
     'favs.v1': 'favs', 'lists.v1': 'lists', 'playlists.v1': 'pls',
     'epprefs.v2': 'map', 'skip.v1': 'map', 'skipend.v1': 'map', 'track.v1': 'map', 'rate.v1': 'map', 'silence.v1': 'map', 'seen.v1': 'map', 'dl.auto.v1': 'map', 'pi.prefs': 'map',
-    'chain': 'whole', 'night': 'whole', 'src': 'whole', 'apple.genre': 'whole', 'queue.v1': 'whole', 'radios.v1': 'whole', 'sleep.fade': 'whole',
+    'chain': 'whole', 'night': 'whole', 'src': 'whole', 'apple.genre': 'whole', 'queue.v1': 'whole', 'radios.v1': 'whole', 'bm.v1': 'whole', 'shortcuts.v1': 'whole', 'rewind': 'whole', 'dl.wifi': 'whole', 'sleep.fade': 'whole',
   };
   const SET_KEYS = Object.keys(KIND), LEGACY_AT = 'set.at.v1', META_KEY = 'sync.meta.v2', PROG_KEY = 'prog.v1';
   const rawSet = Storage.prototype.setItem, rawDel = Storage.prototype.removeItem;

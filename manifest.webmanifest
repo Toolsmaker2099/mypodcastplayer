@@ -11,5 +11,11 @@
     {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
     {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
     {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Reprendre", "url": "./#go=resume", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"}]},
+    {"name": "À écouter", "url": "./#go=queue", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"}]},
+    {"name": "Radios", "url": "./#go=radios", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"}]},
+    {"name": "Découvrir", "url": "./#go=search", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"}]}
   ]
 }
