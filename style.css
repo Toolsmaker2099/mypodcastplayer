@@ -371,3 +371,8 @@ button.sw.on{background:linear-gradient(135deg,#6f86ff,#b072ff);border-color:tra
 #player.mini{grid-template-columns:1fr auto auto auto}
 #player.mini #closep{order:4;grid-row:auto}
 #player:not(.mini):not(.full) .np{padding-right:150px}
+
+.liveradio #seek,.liveradio .times{visibility:hidden}
+.item.radio{cursor:pointer}.item.radio img{width:48px;height:48px;border-radius:12px}
+h3.sect{margin:16px 2px 4px;font-size:15px;color:var(--dim);font-weight:600}
+#radf{margin:10px 0}#radf input{flex:1;min-width:0}

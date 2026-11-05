@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-05.105';
+const APP_VERSION = '2026-11-05.106';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -131,11 +131,12 @@ function renderFavs() {
 }
 // Page « Écoute » : ce que j'écoute (file, nouveautés, playlists, hors ligne), un seul sélecteur en haut.
 function renderListen() {
-  const ft = ['new', 'q', 'pl', 'dl'].includes(localStorage.getItem('favtab')) ? localStorage.getItem('favtab') : 'q', nn = newTotal(), qn = qGet().length;
-  const head = `<div class="favsegw">${seg('favseg', [['q', 'À écouter' + (qn ? ' ' + qn : '')], ['new', 'Nouveautés' + (nn ? ' ' + nn : '')], ['pl', 'Playlists'], ['dl', 'Hors ligne']], ft)}</div>`;
+  const ft = ['new', 'q', 'pl', 'dl', 'radio'].includes(localStorage.getItem('favtab')) ? localStorage.getItem('favtab') : 'q', nn = newTotal(), qn = qGet().length;
+  const head = `<div class="favsegw">${seg('favseg', [['q', 'À écouter' + (qn ? ' ' + qn : '')], ['new', 'Nouveautés' + (nn ? ' ' + nn : '')], ['pl', 'Playlists'], ['dl', 'Hors ligne'], ['radio', 'Radios']], ft)}</div>`;
   if (ft === 'q') { renderQueue(head); return; }
   if (ft === 'new') { renderNew(head); return; }
   if (ft === 'dl') { renderDownloads(head); return; }
+  if (ft === 'radio') { renderRadios(head); return; }
   renderPlaylists(); view.insertAdjacentHTML('afterbegin', head); bindFavSeg();
 }
 function bindFavSeg() { const s = $('#favseg'); if (s) s.onclick = e => { const b = e.target.closest('button[data-v]'); if (b) { localStorage.setItem('favtab', b.dataset.v); renderFavs(); } }; }
@@ -655,7 +656,7 @@ function play(ep, show, art, feedUrl) {
   audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
   curFeedUrl = feedUrl; curSkipEnd = skipEndFor(feedUrl); earlyDone = false; curDurHint = durSec(ep.dur);
   const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast
-  curEp = ep; lastSave = 0;
+  curEp = ep; lastSave = 0; $('#player').classList.toggle('liveradio', !!ep.live);
   const pr = trackOn(feedUrl) ? getProg(feedUrl, ep) : null, start = playStartOverride != null ? playStartOverride : pr && !pr.r && pr.t > 5 ? pr.t : skip; playStartOverride = null;
   curChaps = []; getChapters(ep).then(c => { if (curEp === ep) curChaps = c; }); chapTick(); // reprise si le suivi est activé
   if (start > 0) audio.addEventListener('canplay', () => { if (audio.duration > start) audio.currentTime = start; }, { once: true });
