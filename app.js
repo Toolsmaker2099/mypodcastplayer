@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-04.104';
+const APP_VERSION = '2026-11-05.105';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -882,6 +882,26 @@ onAudio('error', () => {
   const c = audio.error ? audio.error.code : 0;
   note('Erreur de lecture' + (c ? ' (code ' + c + ')' : '') + ' : ' + ({ 2: 'réseau', 3: 'décodage', 4: 'fichier non lisible' }[c] || 'inconnue') + '. Touche ▶ pour réessayer.');
 });
+// Reprise automatique : coupure réseau / flux bloqué pendant la nuit → on se reconnecte à la même position et on relance.
+let rcN = 0, rcT = null, stallT = null;
+function reconnect() {
+  clearTimeout(rcT); clearTimeout(stallT);
+  if (!audio.src || rcN >= 12) return;
+  const delay = Math.min(60000, 3000 * Math.pow(1.6, rcN)); rcN++;
+  rcT = setTimeout(() => {
+    if (!navigator.onLine) { reconnect(); return; }
+    const t = audio.currentTime || 0, src = audio.src;
+    const go = () => { try { audio.currentTime = t; } catch {} audio.play().catch(() => reconnect()); };
+    audio.addEventListener('loadedmetadata', go, { once: true }); audio.src = src; audio.load();
+  }, delay);
+}
+onAudio('playing', () => { rcN = 0; clearTimeout(rcT); clearTimeout(stallT); });
+onAudio('pause', () => { clearTimeout(stallT); });
+onAudio('waiting', () => { clearTimeout(stallT); stallT = setTimeout(() => { if (!audio.paused) reconnect(); }, 20000); });
+onAudio('stalled', () => { clearTimeout(stallT); stallT = setTimeout(() => { if (!audio.paused && audio.readyState < 3) reconnect(); }, 25000); });
+onAudio('error', () => { const c = audio.error ? audio.error.code : 0; if (audio.src && (c === 2 || c === 4 || c === 0) && !(audio === el1 && audio.crossOrigin && !corsBad.has(hostOf(audio.src)))) reconnect(); });
+addEventListener('online', () => { if (audio.src && audio.error) { rcN = 0; reconnect(); } });
+setInterval(() => { if (ctx && ctx.state === 'suspended' && !audio.paused) ctx.resume().catch(() => {}); }, 8000); // le mode Nuit ne doit pas couper le son quand Android suspend le contexte audio
 onAudio('canplay', () => { if (audio === el1 && !ctx && audio.crossOrigin) { buildGraph(); nightParams(); } if (ctx) ctx.resume().catch(() => {}); });
 showNight();
 
