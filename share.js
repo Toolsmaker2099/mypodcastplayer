@@ -38,6 +38,7 @@ async function importShared(code) {
   const msg = t => { m.querySelector('#im-msg').textContent = t; };
   let sh; try { sh = await Sync.shareGet(code); } catch { msg('Impossible de charger ce partage (réseau).'); return; }
   if (!sh || !Array.isArray(sh.data)) { msg('Ce partage est introuvable ou a expiré.'); return; }
+  sh.data = sh.data.filter(x => !blocked(x));
   const isList = sh.kind === 'list', n = sh.data.length;
   msg(`${isList ? 'Liste' : 'Playlist'} « ${sh.name} » : ${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''}.`);
   m.querySelector('#im-body').innerHTML = sh.data.slice(0, 12).map(x => `<div class="lrow" style="cursor:default"><span>${esc(x.title)}</span></div>`).join('') + (n > 12 ? `<p class="dim sm">… et ${n - 12} autres</p>` : '');

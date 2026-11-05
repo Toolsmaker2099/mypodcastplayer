@@ -216,14 +216,17 @@ async function opmlImport(file) {
   const doc = new DOMParser().parseFromString(await file.text(), 'text/xml'), out = [...doc.getElementsByTagName('outline')].map(o => ({ feedUrl: o.getAttribute('xmlUrl') || o.getAttribute('xmlurl') || '', title: o.getAttribute('title') || o.getAttribute('text') || '' })).filter(o => /^https?:\/\//i.test(o.feedUrl));
   if (!out.length) return 0;
   const l = Sync.favs(); let n = 0;
-  out.forEach(o => { if (!l.some(f => f.feedUrl === o.feedUrl)) { l.push({ feedUrl: o.feedUrl, title: o.title, image: '', author: '' }); n++; } });
+  out.forEach(o => { if (!blocked(o) && !l.some(f => f.feedUrl === o.feedUrl)) { l.push({ feedUrl: o.feedUrl, title: o.title, image: '', author: '' }); n++; } });
   if (n) { Sync.setFavs(l); refreshFavs(); }
   return n;
 }
 
 // ---------- Radios en direct ----------
-const RADIO_API = ['https://de1.api.radio-browser.info', 'https://de2.api.radio-browser.info', 'https://all.api.radio-browser.info'];
-const RADIO_BLOCK = /europe ?[12]\b|\brfm\b|virgin radio|cnews|\bc8\b|canal ?\+/i; // groupe Bolloré / Vivendi : exclus
+const RADIO_API = ['https://all.api.radio-browser.info', 'https://de2.api.radio-browser.info', 'https://de1.api.radio-browser.info'];
+// Groupe Bolloré (Vivendi, Canal+, CNews, C8, CStar, Europe 1/2, RFM, Virgin Radio, Lagardère, Prisma, Paris Match, JDD, Havas, Editis, Hachette, Dailymotion…) : inaccessible dans toute l'app.
+const BOLLO_RE = /europe ?[12]\b|europe1|europe2|\bc ?news\b|\bcnews|\bc8\b|\bc ?star\b|canal ?(\+|plus)|\bcanal\+|vivendi|\bhavas\b|lagard[èe]re|paris match|journal du dimanche|\bjdd\b|prisma (media|presse)|virgin radio|\brfm\b|\bgulli\b|dailymotion|\beditis\b|hachette|studio ?canal|\bcapital\b.*prisma|bollor[ée]/i;
+const BOLLO_HOST = /(^|\.)(europe1|europe2|rfm|virginradio|cnews|c8|cstar|canalplus|canal-plus|lejdd|parismatch|prismamedia|prismamediadigital|dailymotion|editis|hachette|lagardere|havas|vivendi)\.(fr|com|net)$/i;
+const blocked = o => { if (!o) return false; if (BOLLO_RE.test([o.title, o.author, o.name, o.show, o.genre].filter(Boolean).join(' | '))) return true; try { return BOLLO_HOST.test(new URL(o.feedUrl || o.url || '').hostname); } catch { return false; } };
 const RADIO_FR = [
   ['France Inter', 'https://icecast.radiofrance.fr/franceinter-midfi.mp3'], ['franceinfo', 'https://icecast.radiofrance.fr/franceinfo-midfi.mp3'],
   ['France Culture', 'https://icecast.radiofrance.fr/franceculture-midfi.mp3'], ['France Musique', 'https://icecast.radiofrance.fr/francemusique-midfi.mp3'],
@@ -233,7 +236,7 @@ const RF_SLUG = { franceinter: 1, franceinfo: 2, franceculture: 5, francemusique
 const rfFor = (name, url) => { const m = /icecast\.radiofrance\.fr\/(franceinter|franceinfo|franceculture|francemusique|fip|mouv)/.exec(url || ''); if (m) return RF_SLUG[m[1]]; const n = (name || '').toLowerCase().replace(/[^a-z]/g, ''); return RF_SLUG[n] || undefined; };
 const RF_LOGO = { 1: 'franceinter', 2: 'franceinfo', 5: 'franceculture', 4: 'francemusique', 7: 'fip', 6: 'mouv' };
 const radLogo = r => r.logo || (() => { const id = r.rf || rfFor(r.name, r.url); return id ? `https://www.radiofrance.fr/external/favicons/${RF_LOGO[id]}/favicon.png` : ''; })();
-const radFavs = () => xget('radios.v1', []);
+const radFavs = () => xget('radios.v1', []).filter(r => !blocked(r));
 const radIsFav = r => radFavs().some(x => x.url === r.url);
 function radToggle(r) { const l = radFavs(), i = l.findIndex(x => x.url === r.url); i >= 0 ? l.splice(i, 1) : l.push({ id: r.url, name: r.name, url: r.url, logo: r.logo || '', rf: r.rf, tags: r.tags || '' }); xset('radios.v1', l); }
 let radTimer = null, curRadio = null;
@@ -264,24 +267,27 @@ async function radNow(r) {
     if ('mediaSession' in navigator) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title || r.name, artist: sub.slice(1).join(' · ') || r.name, artwork: img ? [{ src: img, sizes: '400x400' }] : [] }); } catch {}
   } catch {}
 }
-async function radSearch(q) {
+async function radSearch(q, o = {}) {
   let lastErr;
+  const qs = '/json/stations/search?hidebroken=true&order=clickcount&reverse=true&limit=80' + (q ? '&name=' + encodeURIComponent(q) : '') + (o.tag ? '&tag=' + encodeURIComponent(o.tag) : '') + (o.country ? '&countrycode=' + o.country : '') + (o.lang ? '&language=' + o.lang : '');
   for (const base of RADIO_API) {
     try {
-      const r = await fetch(`${base}/json/stations/search?name=${encodeURIComponent(q)}&countrycode=FR&hidebroken=true&order=clickcount&reverse=true&limit=40`);
+      const r = await fetch(base + qs, { signal: AbortSignal.timeout ? AbortSignal.timeout(9000) : undefined });
       if (!r.ok) throw new Error(r.status);
       const seen = new Set();
-      return (await r.json()).filter(s => (s.url_resolved || s.url) && !RADIO_BLOCK.test(s.name) && !seen.has(s.name.toLowerCase()) && seen.add(s.name.toLowerCase()))
+      return (await r.json()).filter(s => (s.url_resolved || s.url) && !blocked({ name: s.name, url: s.url_resolved || s.url }) && !seen.has(s.name.toLowerCase()) && seen.add(s.name.toLowerCase()))
         .map(s => ({ id: s.stationuuid, name: s.name.trim(), url: (s.url_resolved || s.url).replace(/^http:/, 'https:'), rf: rfFor(s.name, s.url_resolved || s.url), logo: /^https:/.test(s.favicon || '') ? s.favicon : '', tags: [(s.tags || '').split(',').slice(0, 3).join(', '), s.bitrate ? s.bitrate + ' kb/s' : ''].filter(Boolean).join(' · ') }));
     } catch (e) { lastErr = e; }
   }
   throw lastErr || new Error('indisponible');
 }
+const RAD_CATS = [['Info', 'news'], ['Talk', 'talk'], ['Musique', 'music'], ['Pop', 'pop'], ['Rock', 'rock'], ['Jazz', 'jazz'], ['Classique', 'classical'], ['Électro', 'electronic'], ['Oldies', 'oldies'], ['Sport', 'sport'], ['Humour', 'comedy'], ['Nature', 'nature'], ['Ambiance', 'ambient'], ['Enfants', 'kids']];
+let radCat = '', radCountry = 'FR', radLang = '', radQ = '';
 const radRow = (r, i) => `<div class="item radio" data-i="${i}"><img src="${esc(radLogo(r))}" alt="" onerror="this.style.visibility='hidden'"><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
 // mode : 'lib' (mes radios), 'quick' (accueil : mes radios + Radio France), 'find' (Découvrir : recherche + suggestions)
 function renderRadios(head, mode = 'lib') {
   const find = mode === 'find';
-  view.innerHTML = head + (find ? `<form id="radf" class="row"><input id="radq" placeholder="Chercher une radio (ex. Chérie FM, Nostalgie…)" autocomplete="off"><button class="abtn">Chercher</button></form>` : '') + `<div id="radout"></div>`;
+  view.innerHTML = head + (find ? `<form id="radf" class="row"><input id="radq" placeholder="Chercher une radio (ex. Chérie FM, Nostalgie…)" autocomplete="off"><button class="abtn">Chercher</button></form><div class="chips wrap" id="radcats">${RAD_CATS.map(([n, t]) => `<button type="button" class="chip${t === radCat ? ' on' : ''}" data-t="${t}">${n}</button>`).join('')}</div><div class="radfil">${seg('radcty', [['FR', 'France'], ['', 'Monde']], radCountry)}${radCountry === '' ? seg('radlg', [['french', 'Français'], ['', 'Toutes langues']], radLang) : ''}</div>` : '') + `<div id="radout"></div>`;
   bindFavSeg();
   let list = [];
   const bindRows = () => view.querySelectorAll('.item.radio').forEach(el => el.onclick = ev => {
@@ -297,11 +303,19 @@ function renderRadios(head, mode = 'lib') {
   };
   home();
   if (!find) return;
-  $('#radf').onsubmit = async e => {
-    e.preventDefault(); const q = $('#radq').value.trim(); if (!q) { home(); return; }
+  const go = async () => {
+    const q = $('#radq').value.trim(); if (!q && !radCat) { home(); return; }
     $('#radout').innerHTML = '<p class="dim">Recherche…</p>';
-    try { show('Résultats', await radSearch(q), 'Aucune radio trouvée.'); } catch { $('#radout').innerHTML = '<p class="dim">Recherche de radios indisponible (réseau).</p>'; }
+    try { show('Résultats', await radSearch(q, { tag: radCat, country: radCountry, lang: radLang }), 'Aucune radio trouvée avec ces critères.' + (radCountry ? ' Essaie « Monde ».' : '')); } catch { $('#radout').innerHTML = '<p class="dim">Recherche de radios indisponible (réseau).</p>'; }
   };
+  $('#radf').onsubmit = e => { e.preventDefault(); go(); };
+  $('#radcats').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; radCat = radCat === b.dataset.t ? '' : b.dataset.t; if (radCat === 'nature' || radCat === 'ambient') { radCountry = ''; } renderRadios(head, 'find'); $('#radq').value = q0(); go(); };
+  const q0 = () => radQ;
+  const keepQ = () => { radQ = $('#radq').value; };
+  $('#radq').oninput = keepQ;
+  const filt = (id, fn) => { const el = $('#' + id); if (el) el.onclick = e => { const b = e.target.closest('button[data-v]'); if (b) { keepQ(); fn(b.dataset.v); renderRadios(head, 'find'); $('#radq').value = radQ; go(); } }; };
+  filt('radcty', v => { radCountry = v; }); filt('radlg', v => { radLang = v; });
+  $('#radq').value = radQ; if (radQ || radCat) go();
 }
 // ---------- Accueil : reprendre, à écouter, nouveautés, radios ----------
 function renderHome() {

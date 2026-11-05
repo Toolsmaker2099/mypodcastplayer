@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-05.120';
+const APP_VERSION = '2026-11-05.122';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -102,6 +102,7 @@ function refreshTags(u) { // met à jour les pastilles de listes des cartes visi
 }
 function toggleFav(f) {
   const l = Sync.favs(), i = l.findIndex(x => x.feedUrl === f.feedUrl);
+  if (i < 0 && blocked(f)) { toast('Ce média n\'est pas disponible dans l\'app'); return; }
   if (i >= 0) l.splice(i, 1); else l.push({ feedUrl: f.feedUrl, title: f.title, image: f.image, author: f.author, genre: f.genre, count: f.count, last: f.last, desc: (f.desc || '').slice(0, 300) });
   Sync.setFavs(l);
 }
@@ -143,7 +144,7 @@ function bindFavSeg() {
   const r = $('#resume'); if (r) r.onclick = () => { if (!curEp || $('#player').hidden) playLast(); else if (audio.paused) audio.play().catch(() => {}); else audio.pause(); setTimeout(renderFavs, 250); };
 }
 function renderPodcastFavs(head) {
-  const all = Sync.favs(), d = listsData();
+  const all = Sync.favs().filter(f => !blocked(f)), d = listsData();
   let cur = localStorage.getItem('favlist') || 'all'; if (cur !== 'all' && !d.lists.some(x => x.id === cur)) cur = 'all';
   const l = cur === 'all' ? all : Object.keys(d.members).filter(u => d.members[u].includes(cur)).map(u => d.pods[u] || all.find(f => f.feedUrl === u)).filter(Boolean);
   const chips = `<div class="tglrow lchips"><button type="button" class="tgl${cur === 'all' ? ' on' : ''}" data-l="all">${visHtml(VIS_HEART)}Coups de cœur</button>${d.lists.map(x => `<button type="button" class="tgl${cur === x.id ? ' on' : ''}" data-l="${x.id}">${visHtml(x.ic)}${esc(x.name)}</button>`).join('')}<button type="button" class="tgl" data-l="new">+ Nouvelle liste</button></div>` +
@@ -402,7 +403,7 @@ function renderSearch() {
         if (p.sort === 'new') feeds.sort((x, y) => lastOf(y) - lastOf(x));
         else if (p.sort === 'eps') feeds.sort((x, y) => (y.episodeCount || 0) - (x.episodeCount || 0));
         else if (p.sort === 'az') feeds.sort((x, y) => (x.title || '').localeCompare(y.title || '', 'fr'));
-        const list = feeds.slice(0, 150).map(piMap);
+        const list = feeds.map(piMap).filter(f => !blocked(f)).slice(0, 150);
         res.innerHTML = `<p class="count dim">${list.length} résultat${list.length > 1 ? 's' : ''}</p>` + (list.map(f => showItem(f, true)).join('') || '<p class="dim">Aucun résultat avec ces filtres.</p>');
         if (my === runTok) bind(list); return;
       }
@@ -414,7 +415,7 @@ function renderSearch() {
         const by = new Map(); (await (await fetch(`https://itunes.apple.com/lookup?id=${ids.join(',')}&country=fr`)).json()).results.forEach(x => by.set(String(x.collectionId), x));
         results = ids.map(i => by.get(i)).filter(Boolean);
       }
-      const list = results.slice(0, 100).map(x => ({ feedUrl: x.feedUrl || '', title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate }));
+      const list = results.map(x => ({ feedUrl: x.feedUrl || '', title: x.collectionName, image: x.artworkUrl100, author: x.artistName, genre: x.primaryGenreName, count: x.trackCount, last: x.releaseDate })).filter(f => !blocked(f)).slice(0, 100);
       const nofeed = list.filter(f => !f.feedUrl).length;
       res.innerHTML = (nofeed ? `<p class="dim">${nofeed} résultat${nofeed > 1 ? 's' : ''} sans flux public dans l'annuaire Apple (grisé${nofeed > 1 ? 's' : ''}) : impossible de les lire ici.</p>` : '') + (list.map(f => showItem(f, !!f.feedUrl)).join('') || '<p class="dim">Aucun résultat.</p>');
       if (my === runTok) bind(list);
@@ -450,6 +451,7 @@ async function openFeed(f, back) {
   view.innerHTML = '<p class="dim">Chargement…</p>';
   try {
     const feed = feedCache.get(f.feedUrl) || await loadFeed(f.feedUrl);
+    if (blocked(feed) || blocked(f)) { view.innerHTML = '<p class="dim">Ce média n\'est pas disponible dans l\'app.</p>'; return; }
     if (!f.title) setTitle(feed.title, back || (() => render()));
     const isFav = () => Sync.favs().some(x => x.feedUrl === feed.feedUrl);
     const seenAt = seenMap()[feed.feedUrl]; if (isFav()) { markSeen(feed); refreshNewBadge(); }

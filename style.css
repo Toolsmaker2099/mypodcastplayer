@@ -407,3 +407,4 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 .aic:has(.vis){background:none;box-shadow:none;width:auto;height:auto}
 .shgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:12px 6px;overflow:visible;padding:2px 0 6px;justify-items:center}
 .sctile{width:100%;max-width:84px}
+.radfil{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.radfil .seg{flex:1 1 auto}
