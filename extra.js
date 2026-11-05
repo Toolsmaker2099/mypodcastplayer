@@ -175,7 +175,7 @@ const nightHour = () => { const h = new Date().getHours(); return h >= 21 || h <
 const nightKey = () => { const d = new Date(); if (d.getHours() < 5) d.setDate(d.getDate() - 1); return d.toDateString(); };
 const smartBump = () => { smartMotion = Date.now(); };
 function smartExtend() {
-  setSleep(SMART_ADD); toast('Mode malin : minuteur prolongé de ' + SMART_ADD + ' min');
+  setSleep(SMART_ADD); toast('Mode intelligent : minuteur prolongé de ' + SMART_ADD + ' min');
   if (audio.paused) audio.play().catch(() => {});
   smartStopAt = 0; smartMotion = 0;
 }
@@ -195,11 +195,11 @@ function smartTick() {
 }
 function sleepMenu(anchor) {
   const fade = xget('sleep.fade', true) !== false, act = typeof sleepEnd !== 'undefined' && (sleepEnd || sleepEp);
-  const el = popover(anchor, `<div class="phead">Minuteur d'arrêt</div><div class="lbody">${[15, 30, 45, 60, 90].map(m => `<button type="button" class="prow" data-m="${m}"><span>${m} minutes</span></button>`).join('')}<button type="button" class="prow" data-m="ep"><span>À la fin de l'épisode</span></button>${act ? '<button type="button" class="prow" data-m="0"><span>Désactiver</span></button>' : ''}</div><label class="lrow"><input type="checkbox" id="fadeck"${fade ? ' checked' : ''}><span>Fondu du volume avant l'arrêt</span></label><label class="lrow"><input type="checkbox" id="smartck"${smartOn() ? ' checked' : ''}><span>Mode malin</span></label><small class="dim" style="display:block;padding:0 14px 10px">Lance seul un minuteur de 45 min si tu écoutes entre 21 h et 5 h, et le prolonge de 15 min si tu bouges ou touches l'écran juste avant l'arrêt.</small>`);
+  const el = popover(anchor, `<div class="phead">Minuteur d'arrêt</div><div class="lbody">${[15, 30, 45, 60, 90].map(m => `<button type="button" class="prow" data-m="${m}"><span>${m} minutes</span></button>`).join('')}<button type="button" class="prow" data-m="ep"><span>À la fin de l'épisode</span></button>${act ? '<button type="button" class="prow" data-m="0"><span>Désactiver</span></button>' : ''}</div><label class="lrow"><input type="checkbox" id="fadeck"${fade ? ' checked' : ''}><span>Fondu du volume avant l'arrêt</span></label><label class="lrow"><input type="checkbox" id="smartck"${smartOn() ? ' checked' : ''}><span>Mode intelligent</span></label><small class="dim" style="display:block;padding:0 14px 10px">Lance seul un minuteur de 45 min si tu écoutes entre 21 h et 5 h, et le prolonge de 15 min si tu bouges ou touches l'écran juste avant l'arrêt.</small>`);
   if (!el) return;
   el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const v = b.dataset.m; if (v === '0') smartSkipNight = nightKey(); setSleep(v === 'ep' ? 'ep' : +v); closePop(); });
   el.querySelector('#fadeck').onchange = e => xset('sleep.fade', e.target.checked);
-  el.querySelector('#smartck').onchange = e => { xset('sleep.smart', e.target.checked); toast(e.target.checked ? 'Mode malin activé' : 'Mode malin désactivé'); };
+  el.querySelector('#smartck').onchange = e => { xset('sleep.smart', e.target.checked); toast(e.target.checked ? 'Mode intelligent activé' : 'Mode intelligent désactivé'); };
   el.place();
 }
 
@@ -508,7 +508,7 @@ function bootExtra() {
   setInterval(smartTick, 1000);
   onAudio('play', () => { // minuteur malin : départ automatique la nuit
     if (!smartOn() || !nightHour() || sleepEnd || sleepEp || smartSkipNight === nightKey()) return;
-    setTimeout(() => { if (!audio.paused && !sleepEnd && !sleepEp && smartOn()) { setSleep(SMART_AUTO); toast('Mode malin : arrêt dans ' + SMART_AUTO + ' min'); } }, 3000);
+    setTimeout(() => { if (!audio.paused && !sleepEnd && !sleepEp && smartOn()) { setSleep(SMART_AUTO); toast('Mode intelligent : arrêt dans ' + SMART_AUTO + ' min'); } }, 3000);
   });
   let pausedAt = 0, lastT = 0;
   onAudio('pause', () => { if (!audio.ended && curEp && !curEp.live) pausedAt = Date.now(); saveLast(); });
