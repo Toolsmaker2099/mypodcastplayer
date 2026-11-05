@@ -283,7 +283,7 @@ async function radSearch(q, o = {}) {
 }
 const RAD_CATS = [['Info', 'news'], ['Talk', 'talk'], ['Musique', 'music'], ['Pop', 'pop'], ['Rock', 'rock'], ['Jazz', 'jazz'], ['Classique', 'classical'], ['Électro', 'electronic'], ['Oldies', 'oldies'], ['Sport', 'sport'], ['Humour', 'comedy'], ['Nature', 'nature'], ['Ambiance', 'ambient'], ['Enfants', 'kids']];
 let radCat = '', radCountry = 'FR', radLang = '', radQ = '';
-const radRow = (r, i) => `<div class="item radio" data-i="${i}"><img src="${esc(radLogo(r))}" alt="" onerror="this.style.visibility='hidden'"><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
+const radRow = (r, i) => `<div class="item radio" data-i="${i}"><img src="${esc(radLogo(r))}" alt=""><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
 // mode : 'lib' (mes radios), 'quick' (accueil : mes radios + Radio France), 'find' (Découvrir : recherche + suggestions)
 function renderRadios(head, mode = 'lib') {
   const find = mode === 'find';
@@ -440,6 +440,7 @@ function handleHash() {
 }
 // Branchements sur le lecteur (appelé une fois par app.js, après la création de l'élément audio)
 function bootExtra() {
+  initImgFallback();
   let pausedAt = 0, lastT = 0;
   onAudio('pause', () => { if (!audio.ended && curEp && !curEp.live) pausedAt = Date.now(); saveLast(); });
   onAudio('play', () => {
@@ -457,7 +458,7 @@ let scEdit = false;
 const VIS_HEART = { e: '❤️', c: 1 };
 function scVis(s) { if (s.k === 'list' && s.id === 'all') return visHtml(VIS_HEART, 'tile'); const o = s.k === 'list' ? listsData().lists.find(y => y.id === s.id) : s.k === 'pl' ? plData().find(y => y.id === s.id) : null; return o && o.ic ? visHtml(o.ic, 'tile') : ''; }
 function shortcutsHtml() {
-  const l = scGet(), tile = (s, i) => `<button type="button" class="sctile" data-sc="${i}">${scVis(s) || ((s.img || (s.k === 'radio' ? radLogo(s) : '')) ? `<img src="${esc(s.img || radLogo(s))}" alt="" onerror="this.remove()">` : `<span class="scini">${esc((s.name || '?').trim().charAt(0).toUpperCase())}</span>`)}<span class="scn">${esc(s.name)}</span>${scEdit ? '<i class="scx" aria-hidden="true">✕</i>' : ''}</button>`;
+  const l = scGet(), tile = (s, i) => `<button type="button" class="sctile" data-sc="${i}">${scVis(s) || ((s.img || (s.k === 'radio' ? radLogo(s) : '')) ? `<img src="${esc(s.img || radLogo(s))}" alt="">` : `<span class="scini">${esc((s.name || '?').trim().charAt(0).toUpperCase())}</span>`)}<span class="scn">${esc(s.name)}</span>${scEdit ? '<i class="scx" aria-hidden="true">✕</i>' : ''}</button>`;
   return `<div class="shortcuts"><div class="shhead"><b>Raccourcis</b><span><button type="button" class="tgl" id="scadd">＋ Ajouter</button>${l.length ? `<button type="button" class="tgl${scEdit ? ' on' : ''}" id="scedit">${scEdit ? 'Terminé' : 'Modifier'}</button>` : ''}</span></div>${l.length ? `<div class="shgrid">${l.map(tile).join('')}</div>` : '<p class="dim sm">Ajoute tes radios, podcasts, listes ou playlists préférés pour les lancer en un geste.</p>'}</div>`;
 }
 function bindShortcuts() {
@@ -517,4 +518,24 @@ function pickVisual(cur, onDone) {
   m.querySelector('#vok').onclick = () => { if (!e) { toast('Choisis une icône'); return; } m.close(); onDone({ e, c }); };
   m.querySelector('#vno').onclick = () => { m.close(); onDone(null); };
   draw();
+}
+
+// ---------- Visuel de remplacement quand une pochette est introuvable ----------
+const phCache = {};
+function phUrl(seed) {
+  const i = [...String(seed || 'x')].reduce((a, c) => a + c.charCodeAt(0), 0) % VIS_COLORS.length;
+  if (phCache[i]) return phCache[i];
+  const c = VIS_COLORS[i];
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${c[0]}'/><stop offset='1' stop-color='${c[1]}'/></linearGradient><radialGradient id='h' cx='.3' cy='.2' r='.8'><stop offset='0' stop-color='white' stop-opacity='.35'/><stop offset='1' stop-color='white' stop-opacity='0'/></radialGradient></defs><rect width='100' height='100' fill='url(#g)'/><rect width='100' height='100' fill='url(#h)'/><g fill='none' stroke='white' stroke-opacity='.92' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'><rect x='40' y='22' width='20' height='36' rx='10'/><path d='M29 48a21 21 0 0 0 42 0M50 69v11M39 80h22'/></g></svg>`;
+  return phCache[i] = 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+function initImgFallback() {
+  const fix = im => {
+    if (!(im instanceof HTMLImageElement) || im.id === 'np-art' || im.dataset.ph) return;
+    const s = im.getAttribute('src');
+    if (s == null || s === '') { im.dataset.ph = '1'; im.src = phUrl(im.alt || (im.closest('.item') && im.closest('.item').textContent.slice(0, 12))); }
+  };
+  document.addEventListener('error', e => { const im = e.target; if (!(im instanceof HTMLImageElement) || im.id === 'np-art' || im.dataset.ph || im.src.startsWith('data:')) return; im.dataset.ph = '1'; im.src = phUrl(im.getAttribute('src')); }, true);
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(nd => { if (nd.nodeType !== 1) return; if (nd.tagName === 'IMG') fix(nd); else nd.querySelectorAll && nd.querySelectorAll('img').forEach(fix); }))).observe(document.body, { childList: true, subtree: true });
+  document.querySelectorAll('img').forEach(fix);
 }
