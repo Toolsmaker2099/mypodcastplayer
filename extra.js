@@ -442,8 +442,9 @@ function bootExtra() {
 // ---------- Raccourcis personnalisables de l'accueil (synchronisés) ----------
 const scGet = () => xget('shortcuts.v1', []);
 let scEdit = false;
+function scVis(s) { const o = s.k === 'list' ? listsData().lists.find(y => y.id === s.id) : s.k === 'pl' ? plData().find(y => y.id === s.id) : null; return o && o.ic ? visHtml(o.ic, 'tile') : ''; }
 function shortcutsHtml() {
-  const l = scGet(), tile = (s, i) => `<button type="button" class="sctile" data-sc="${i}">${(s.img || (s.k === 'radio' ? radLogo(s) : '')) ? `<img src="${esc(s.img || radLogo(s))}" alt="" onerror="this.remove()">` : `<span class="scini">${esc((s.name || '?').trim().charAt(0).toUpperCase())}</span>`}<span class="scn">${esc(s.name)}</span>${scEdit ? '<i class="scx" aria-hidden="true">✕</i>' : ''}</button>`;
+  const l = scGet(), tile = (s, i) => `<button type="button" class="sctile" data-sc="${i}">${scVis(s) || ((s.img || (s.k === 'radio' ? radLogo(s) : '')) ? `<img src="${esc(s.img || radLogo(s))}" alt="" onerror="this.remove()">` : `<span class="scini">${esc((s.name || '?').trim().charAt(0).toUpperCase())}</span>`)}<span class="scn">${esc(s.name)}</span>${scEdit ? '<i class="scx" aria-hidden="true">✕</i>' : ''}</button>`;
   return `<div class="shortcuts"><div class="shhead"><b>Raccourcis</b><span><button type="button" class="tgl" id="scadd">＋ Ajouter</button>${l.length ? `<button type="button" class="tgl${scEdit ? ' on' : ''}" id="scedit">${scEdit ? 'Terminé' : 'Modifier'}</button>` : ''}</span></div>${l.length ? `<div class="shgrid">${l.map(tile).join('')}</div>` : '<p class="dim sm">Ajoute tes radios, podcasts, listes ou playlists préférés pour les lancer en un geste.</p>'}</div>`;
 }
 function bindShortcuts() {
@@ -477,4 +478,29 @@ function scPicker() {
   if (!flat.length) html += '<p class="dim">Rien à ajouter pour l\'instant : mets des radios ou des podcasts en favoris, ou crée une playlist.</p>';
   const m = modal(html + '<button data-close class="ghost">Fermer</button>');
   m.querySelectorAll('.chip').forEach(b => b.onclick = () => { const l = scGet(); l.push(flat[+b.dataset.i]); xset('shortcuts.v1', l); m.close(); if (tab === 'home') renderFavs(); toast('Raccourci ajouté'); });
+}
+
+// ---------- Visuels des listes et playlists (bibliothèque d'icônes) ----------
+const VIS_COLORS = [['#6f86ff', '#b072ff'], ['#ff6b9a', '#ff9a6b'], ['#2ec4b6', '#4895ef'], ['#f7b733', '#fc4a1a'], ['#43e97b', '#38b6a8'], ['#a18cd1', '#fbc2eb'], ['#5f6c7b', '#2b3a4a'], ['#e0245e', '#7b2ff7']];
+const VIS_SETS = [
+  ['Détente et nuit', '🌙 😴 🛏️ 🌌 ⭐ 🌧️ 🔥 🧘 ☕ 🕯️ 🌊 🍃'],
+  ['Savoir et culture', '📚 🎓 🏛️ 🎭 🎨 🎬 🧠 🔬 🌍 ⚖️ 🔭 ✍️'],
+  ['Actualité et vie pro', '📰 🎙️ 💼 📈 💡 🗳️ 🏆 🤝 🧾 🛠️ 💻 📣'],
+  ['Musique et loisirs', '🎵 🎧 🎸 🎹 🎷 😂 🎲 🎮 👻 🕵️ 🍿 🎤'],
+  ['Sport et plein air', '⚽ 🏃 🚴 🏊 🏔️ ⛵ 🥾 🏀 🎾 🥋 🏋️ 🧗'],
+  ['Famille et quotidien', '❤️ 👨‍👩‍👧 🧒 🍳 🌿 🐶 ✈️ 🚗 🏠 💪 🛒 🎁'],
+];
+const visGrad = i => { const c = VIS_COLORS[i] || VIS_COLORS[0]; return `linear-gradient(135deg,${c[0]},${c[1]})`; };
+const visHtml = (ic, cls = '') => ic && ic.e ? `<span class="vis ${cls}" style="background:${visGrad(ic.c)}">${ic.e}</span>` : '';
+function pickVisual(cur, onDone) {
+  let e = cur && cur.e || '', c = cur && cur.c != null ? cur.c : 0;
+  const m = modal(`<h3>Choisir un visuel</h3><div class="vprev"></div><div class="vcols">${VIS_COLORS.map((_, i) => `<button type="button" class="vcol" data-c="${i}" style="background:${visGrad(i)}" aria-label="Couleur ${i + 1}"></button>`).join('')}</div>`
+    + VIS_SETS.map(([t, s]) => `<h4 class="sect">${t}</h4><div class="vgrid">${s.split(' ').map(g => `<button type="button" class="vemo" data-e="${g}">${g}</button>`).join('')}</div>`).join('')
+    + '<div class="shbtns"><button class="abtn" id="vok">Valider</button><button type="button" id="vno">Retirer le visuel</button></div><button data-close class="ghost">Annuler</button>');
+  const draw = () => { m.querySelector('.vprev').innerHTML = e ? visHtml({ e, c }, 'big') : '<span class="dim sm">Choisis une icône et une couleur</span>'; m.querySelectorAll('.vemo').forEach(b => b.classList.toggle('on', b.dataset.e === e)); m.querySelectorAll('.vcol').forEach(b => b.classList.toggle('on', +b.dataset.c === c)); };
+  m.querySelectorAll('.vemo').forEach(b => b.onclick = () => { e = b.dataset.e; draw(); });
+  m.querySelectorAll('.vcol').forEach(b => b.onclick = () => { c = +b.dataset.c; draw(); });
+  m.querySelector('#vok').onclick = () => { if (!e) { toast('Choisis une icône'); return; } m.close(); onDone({ e, c }); };
+  m.querySelector('#vno').onclick = () => { m.close(); onDone(null); };
+  draw();
 }
