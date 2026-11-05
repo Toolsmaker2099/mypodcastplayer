@@ -405,3 +405,5 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 .vgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.vemo{font-size:22px;height:42px;padding:0;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line)}.vemo.on{border-color:#8b7fff;background:rgba(139,127,255,.2)}
 .modal .sheet{max-height:86vh;overflow:auto}
 .aic:has(.vis){background:none;box-shadow:none;width:auto;height:auto}
+.shgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:12px 6px;overflow:visible;padding:2px 0 6px;justify-items:center}
+.sctile{width:100%;max-width:84px}
