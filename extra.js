@@ -273,8 +273,11 @@ async function radNow(r) {
     if ('mediaSession' in navigator) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title || r.name, artist: sub.slice(1).join(' · ') || r.name, artwork: img ? [{ src: img, sizes: '400x400' }] : [] }); } catch {}
   } catch {}
 }
-const rfLocal = (q, o) => { const n = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); const w = n(q).trim(); const tagOk = { jazz: /jazz/, rock: /rock/, electronic: /electro/, classical: /classi|baroque|concert|contemp/, pop: /pop/, music: /./, oldies: /sacre/ }[o.tag];
-  if (o.tag && !tagOk) return []; if (o.country === 'FR' || !o.country) return RADIO_FR.filter(r => (!w || n(r.name).includes(w) || n('radio france').includes(w)) && (!o.tag || tagOk.test(n(r.name)) || o.tag === 'music')); return []; };
+const rfLocal = (q, o) => { const n = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); const w = n(q).trim();
+  if (o.country && o.country !== 'FR') return [];
+  const TAG = { news: /franceinfo|inter/, talk: /inter|culture|franceinfo/, rap: /mouv|hip-hop/, music: /./, pop: /pop|fip|mouv/, rock: /rock/, jazz: /jazz/, electronic: /electro/, classical: /france musique|classi|baroque|concert|contemp/, oldies: /sacre/ }[o.tag];
+  if (o.tag && !TAG) return [];
+  return RADIO_FR.filter(r => (!w || n(r.name).includes(w) || n('radio france').includes(w)) && (!o.tag || TAG.test(n(r.name)))); };
 async function radSearch(q, o = {}) {
   const loc = rfLocal(q, o), merge = a => { const u = new Set(loc.map(r => r.url)); return loc.concat(a.filter(r => !u.has(r.url))); };
   return merge(await radSearchNet(q, o).catch(e => { if (loc.length) return []; throw e; }));
