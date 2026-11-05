@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-05.127';
+const APP_VERSION = '2026-11-05.128';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -342,7 +342,7 @@ const PRODUCERS = [
   ['BBC', /\bbbc\b/i], ['NPR', /\bnpr\b/i], ['Audible', /\baudible\b/i], ['Spotify Studios', /spotify/i],
 ];
 PRODUCERS.sort((a, b) => a[0].localeCompare(b[0], 'fr', { sensitivity: 'base' })); // ordre alphabétique
-let searchProd = '', searchQ = '', filtersOpen = false;
+let searchProd = '', searchQ = '', filtersOpen = false, searchBook = false;
 const seg = (id, opts, val) => `<div class="seg" id="${id}">${opts.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
 const SVG_SEARCH = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
 const APPLE_GENRES = [['', 'Toutes les catégories'], ['1301', 'Arts'], ['1303', 'Humour'], ['1304', 'Éducation'], ['1305', 'Enfants et famille'], ['1321', 'Économie'], ['1483', 'Fiction'], ['1511', 'Gouvernement'], ['1512', 'Santé et forme'], ['1487', 'Histoire'], ['1502', 'Loisirs'], ['1310', 'Musique'], ['1489', 'Actualités'], ['1314', 'Religion et spiritualité'], ['1533', 'Sciences'], ['1324', 'Société et culture'], ['1545', 'Sport'], ['1318', 'Technologie'], ['1488', 'Faits divers'], ['1309', 'Télévision et cinéma']];
@@ -356,6 +356,7 @@ function renderSearch() {
   const active = pi ? [p.lang !== 'fr', !!p.cat, p.sort !== 'rel', p.clean, p.full, !!searchProd].filter(Boolean).length : 0;
   view.innerHTML = `${seg('srcseg', [['apple', 'Apple Podcasts'], ['pi', piReady() ? 'Podcast Index' : 'Podcast Index 🔒']], searchSrc)}
     <form id="sf" class="searchbar">${SVG_SEARCH}<input type="search" id="q" placeholder="${pi ? PI_HINT[p.mode] : 'Mot-clé (facultatif)…'}" value="${esc(searchQ)}" enterkeyhint="search"><button>Chercher</button></form>
+    <div class="chips wrap" style="margin:8px 0"><button type="button" class="chip${searchBook ? ' on' : ''}" id="bookchip">📚 Livres audio</button></div>
     ${pi ? '' : `<div class="frow agrow"><span>Catégorie</span><select id="agenre">${APPLE_GENRES.map(([v, l]) => `<option value="${v}"${v === appleGenre() ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`}
     ${pi ? `<div class="scrollx">${seg('modeseg', PI_MODES, p.mode)}</div>
     <button id="ftoggle" type="button" class="ghost">⚙ Filtres${active ? ` <span class="badge">${active}</span>` : ''}<span class="car">${filtersOpen ? '⌃' : '⌄'}</span></button>
@@ -389,9 +390,9 @@ function renderSearch() {
         if (p.mode === 'trending') feeds = await piGet(`podcasts/trending?max=100${since(14)}${lg}${ct}`);
         else if (p.mode === 'recent') feeds = await piGet(`recent/feeds?max=100${lg}${ct}`);
         else if (p.mode === 'new') feeds = await piGet(`recent/newfeeds?max=100${since(30)}`);
-        else if (!q && !prod) { srvFiltered = true; feeds = await piGet(`podcasts/trending?max=1000${since(365)}${lg}${ct}`); }
+        else if (!q && !prod && !searchBook) { srvFiltered = true; feeds = await piGet(`podcasts/trending?max=1000${since(365)}${lg}${ct}`); }
         else {
-          const term = encodeURIComponent(q || (prod && prod[0]) || '');
+          const term = encodeURIComponent(searchBook ? (q ? q + ' livre audio' : 'livre audio') : (q || (prod && prod[0]) || ''));
           feeds = await piGet(p.mode === 'title' ? `search/bytitle?max=100&q=${term}${p.clean ? '&clean' : ''}` : `search/byterm?max=100&q=${term}${p.clean ? '&clean' : ''}${p.full ? '&fulltext' : ''}`);
         }
         feeds = feeds.filter(x => x.url && !x.dead && !(p.clean && x.explicit));
@@ -408,7 +409,7 @@ function renderSearch() {
         if (my === runTok) bind(list); return;
       }
       let results;
-      if (q) results = (await (await fetch(`https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(q)}`)).json()).results;
+      if (q || searchBook) results = (await (await fetch(`https://itunes.apple.com/search?media=podcast&limit=200&country=fr&term=${encodeURIComponent(searchBook ? (q ? q + ' livre audio' : 'livre audio') : q)}`)).json()).results;
       else { // sans mot : classement Apple (par catégorie), puis recherche des flux
         const g = appleGenre(), top = await (await fetch(`https://itunes.apple.com/fr/rss/toppodcasts/limit=100${g ? '/genre=' + g : ''}/json`)).json();
         const ids = (top.feed.entry || []).map(e => e.id.attributes['im:id']);
@@ -432,6 +433,7 @@ function renderSearch() {
   if (!pi) $('#agenre').onchange = e => { try { localStorage.setItem('apple.genre', e.target.value); } catch {} run(); };
   let dt = 0;
   $('#q').oninput = () => { clearTimeout(dt); const v = $('#q').value.trim(); if (v.length === 1) return; dt = setTimeout(run, 380); }; // recherche au fil de la frappe
+  $('#bookchip').onclick = () => { searchBook = !searchBook; renderSearch(); };
   $('#sf').onsubmit = e => { e.preventDefault(); clearTimeout(dt); run(); };
   if (pi) {
     bindSeg('modeseg', v => { savePrefs({ mode: v }); refresh(); });
