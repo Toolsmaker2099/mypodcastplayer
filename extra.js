@@ -236,7 +236,7 @@ const RADIO_FR = [
   ['FIP Monde', 'fipworld', 'fip'], ['FIP Nouveautés', 'fipnouveautes', 'fip'], ['FIP Pop', 'fippop', 'fip'], ['FIP Metal', 'fipmetal', 'fip'], ['FIP Hip-hop', 'fiphiphop', 'fip'],
   ['FIP Sacré français', 'fipsacrefrancais', 'fip'], ['France Musique La Jazz', 'francemusiquelajazz', 'francemusique'], ['France Musique Classique Plus', 'francemusiqueclassiqueplus', 'francemusique'],
   ['France Musique Concerts', 'francemusiqueconcertsradiofrance', 'francemusique'], ['France Musique Contemporaine', 'francemusiquelacontemporaine', 'francemusique'],
-  ['France Musique La BO', 'francemusiquelabo', 'francemusique'], ['France Musique Baroque', 'francemusiquebaroque', 'francemusique'],
+  ['France Musique La BO', 'francemusiquelabo', 'francemusique'], ['France Musique Baroque', 'francemusiquebaroque', 'francemusique'], ['France Musique Piano Zen', 'francemusiquepianozen', 'francemusique'],
 ].map(([name, m, p]) => ({ id: m, name, url: `https://icecast.radiofrance.fr/${m}-midfi.mp3`, logo: `https://www.radiofrance.fr/external/favicons/${p}/favicon.png`, tags: 'Webradio Radio France' }))); // rf : identifiant « livemeta » de Radio France (titre en cours)
 const RF_SLUG = { franceinter: 1, franceinfo: 2, franceculture: 5, francemusique: 4, fip: 7, mouv: 6 };
 const rfFor = (name, url) => { const m = /icecast\.radiofrance\.fr\/(franceinter|franceinfo|franceculture|francemusique|fip|mouv)-/.exec(url || ''); if (m) return RF_SLUG[m[1]]; const n = (name || '').toLowerCase().replace(/[^a-z]/g, ''); return RF_SLUG[n] || undefined; };
@@ -274,12 +274,14 @@ async function radNow(r) {
   } catch {}
 }
 const rfLocal = (q, o) => { const n = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); const w = n(q).trim();
-  if (o.country && o.country !== 'FR') return [];
+  if (o.country && o.country !== 'FR' && o.tag !== 'rf') return [];
   const TAG = { news: /franceinfo|inter/, talk: /inter|culture|franceinfo/, rap: /mouv|hip-hop/, music: /./, pop: /pop|fip|mouv/, rock: /rock/, jazz: /jazz/, electronic: /electro/, classical: /france musique|classi|baroque|concert|contemp/, oldies: /sacre/ }[o.tag];
+  if (o.tag === 'rf') return RADIO_FR.filter(r => !w || n(r.name).includes(w));
   if (o.tag && !TAG) return [];
   return RADIO_FR.filter(r => (!w || n(r.name).includes(w) || n('radio france').includes(w)) && (!o.tag || TAG.test(n(r.name)))); };
 async function radSearch(q, o = {}) {
-  const loc = rfLocal(q, o), merge = a => { const u = new Set(loc.map(r => r.url)); return loc.concat(a.filter(r => !u.has(r.url))); };
+  const loc = rfLocal(q, o); if (o.tag === 'rf') return loc;
+  const merge = a => { const u = new Set(loc.map(r => r.url)); return loc.concat(a.filter(r => !u.has(r.url))); };
   return merge(await radSearchNet(q, o).catch(e => { if (loc.length) return []; throw e; }));
 }
 async function radSearchNet(q, o = {}) {
@@ -296,7 +298,7 @@ async function radSearchNet(q, o = {}) {
   }
   throw lastErr || new Error('indisponible');
 }
-const RAD_CATS = [['Info', 'news'], ['Talk', 'talk'], ['Musique', 'music'], ['Pop', 'pop'], ['Rock', 'rock'], ['Jazz', 'jazz'], ['Classique', 'classical'], ['Rap', 'rap'], ['Électro', 'electronic'], ['Oldies', 'oldies'], ['Sport', 'sport'], ['Humour', 'comedy'], ['Nature', 'nature'], ['Ambiance', 'ambient'], ['Enfants', 'kids']];
+const RAD_CATS = [['Radio France', 'rf'], ['Info', 'news'], ['Talk', 'talk'], ['Musique', 'music'], ['Pop', 'pop'], ['Rock', 'rock'], ['Jazz', 'jazz'], ['Classique', 'classical'], ['Rap', 'rap'], ['Électro', 'electronic'], ['Oldies', 'oldies'], ['Sport', 'sport'], ['Humour', 'comedy'], ['Nature', 'nature'], ['Ambiance', 'ambient'], ['Enfants', 'kids']];
 let radCat = '', radCountry = 'FR', radLang = '', radQ = '';
 const radRow = (r, i) => `<div class="item radio" data-i="${i}"><img src="${esc(radLogo(r))}" alt=""><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
 // mode : 'lib' (mes radios), 'quick' (accueil : mes radios + Radio France), 'find' (Découvrir : recherche + suggestions)
