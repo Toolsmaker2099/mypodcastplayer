@@ -272,7 +272,9 @@ const radFavs = () => xget('radios.v1', []).filter(r => !blocked(r));
 const radIsFav = r => radFavs().some(x => x.url === r.url);
 function radToggle(r) { const l = radFavs(), i = l.findIndex(x => x.url === r.url); i >= 0 ? l.splice(i, 1) : l.push({ id: r.url, name: r.name, url: r.url, logo: r.logo || '', rf: r.rf, tags: r.tags || '' }); xset('radios.v1', l); }
 let radTimer = null, curRadio = null, radMeta = null;
+const rfOfficial = u => { const m = /(?:icecast\.radiofrance\.fr|direct\.(?:franceinter|francemusique|franceculture|franceinfo|mouv|fip)\.fr(?:\/live)?|stream\.radiofrance\.fr\/(?:[a-z]+))\/?(franceinter|franceinfo|franceculture|francemusique|fip[a-z]*|mouv)[-_./]/i.exec(u || ''); return m ? `https://icecast.radiofrance.fr/${m[1].toLowerCase()}-midfi.mp3` : ''; };
 function playRadio(r) {
+  { const o = rfOfficial(r.url); if (o && o !== r.url) r = { ...r, url: o }; } // flux officiel Radio France (même source que l'antenne)
   if (!r.rf) r = { ...r, rf: rfFor(r.name, r.url) }; // favoris enregistrés avant l'ajout des infos en direct
   r = { ...r, logo: radLogo(r) };
   queue = []; qi = -1; qCtx = { show: 'Radio en direct', art: r.logo || '', feedUrl: '', auto: false };
@@ -335,7 +337,7 @@ async function radSearchNet(q, o = {}) {
       const r = await fetch(base + qs, { signal: AbortSignal.timeout ? AbortSignal.timeout(9000) : undefined });
       if (!r.ok) throw new Error(r.status);
       const seen = new Set();
-      return (await r.json()).filter(s => (s.url_resolved || s.url) && !blocked({ name: s.name, url: s.url_resolved || s.url }) && !seen.has(s.name.toLowerCase()) && seen.add(s.name.toLowerCase()))
+      return (await r.json()).filter(s => (s.url_resolved || s.url) && !rfOfficial(s.url_resolved || s.url) && !blocked({ name: s.name, url: s.url_resolved || s.url }) && !seen.has(s.name.toLowerCase()) && seen.add(s.name.toLowerCase()))
         .map(s => ({ id: s.stationuuid, name: s.name.trim(), url: (s.url_resolved || s.url).replace(/^http:/, 'https:'), rf: rfFor(s.name, s.url_resolved || s.url), logo: /^https:/.test(s.favicon || '') ? s.favicon : '', tags: [(s.tags || '').split(',').slice(0, 3).join(', '), s.bitrate ? s.bitrate + ' kb/s' : ''].filter(Boolean).join(' · ') }));
     } catch (e) { lastErr = e; }
   }
