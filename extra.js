@@ -281,7 +281,7 @@ async function radSearch(q, o = {}) {
   }
   throw lastErr || new Error('indisponible');
 }
-const RAD_CATS = [['Info', 'news'], ['Talk', 'talk'], ['Musique', 'music'], ['Pop', 'pop'], ['Rock', 'rock'], ['Jazz', 'jazz'], ['Classique', 'classical'], ['Électro', 'electronic'], ['Oldies', 'oldies'], ['Sport', 'sport'], ['Humour', 'comedy'], ['Nature', 'nature'], ['Ambiance', 'ambient'], ['Enfants', 'kids']];
+const RAD_CATS = [['Info', 'news'], ['Talk', 'talk'], ['Musique', 'music'], ['Pop', 'pop'], ['Rock', 'rock'], ['Jazz', 'jazz'], ['Classique', 'classical'], ['Rap', 'rap'], ['Électro', 'electronic'], ['Oldies', 'oldies'], ['Sport', 'sport'], ['Humour', 'comedy'], ['Nature', 'nature'], ['Ambiance', 'ambient'], ['Enfants', 'kids']];
 let radCat = '', radCountry = 'FR', radLang = '', radQ = '';
 const radRow = (r, i) => `<div class="item radio" data-i="${i}"><img src="${esc(radLogo(r))}" alt=""><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
 // mode : 'lib' (mes radios), 'quick' (accueil : mes radios + Radio France), 'find' (Découvrir : recherche + suggestions)
