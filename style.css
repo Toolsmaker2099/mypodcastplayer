@@ -381,3 +381,4 @@ h3.sect{margin:16px 2px 4px;font-size:15px;color:var(--dim);font-weight:600}
 .resumecard .t{flex:1;min-width:0}.resumecard small{color:var(--dim);display:block}.resumecard b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .resumecard .abtn{height:38px;padding:0 14px;font-size:14px;flex:none}
 details.adds{margin:8px 0 12px}details.adds .acard{margin:8px 0}
+.seg .cnt{display:inline-block;min-width:18px;padding:0 5px;margin-left:3px;border-radius:9px;background:#ff6b9a;color:#fff;font:700 11px/18px system-ui;text-align:center}
