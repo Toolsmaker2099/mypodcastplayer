@@ -231,9 +231,15 @@ const RADIO_FR = [
   ['France Inter', 'https://icecast.radiofrance.fr/franceinter-midfi.mp3'], ['franceinfo', 'https://icecast.radiofrance.fr/franceinfo-midfi.mp3'],
   ['France Culture', 'https://icecast.radiofrance.fr/franceculture-midfi.mp3'], ['France Musique', 'https://icecast.radiofrance.fr/francemusique-midfi.mp3'],
   ['FIP', 'https://icecast.radiofrance.fr/fip-midfi.mp3'], ["Mouv'", 'https://icecast.radiofrance.fr/mouv-midfi.mp3'],
-].map(([name, url], i) => ({ id: url, name, url, logo: '', rf: [1, 2, 5, 4, 7, 6][i] })); // rf : identifiant « livemeta » de Radio France (titre en cours)
+].map(([name, url], i) => ({ id: url, name, url, logo: '', rf: [1, 2, 5, 4, 7, 6][i] })).concat([
+  ['FIP Rock', 'fiprock', 'fip'], ['FIP Jazz', 'fipjazz', 'fip'], ['FIP Groove', 'fipgroove', 'fip'], ['FIP Reggae', 'fipreggae', 'fip'], ['FIP Électro', 'fipelectro', 'fip'],
+  ['FIP Monde', 'fipworld', 'fip'], ['FIP Nouveautés', 'fipnouveautes', 'fip'], ['FIP Pop', 'fippop', 'fip'], ['FIP Metal', 'fipmetal', 'fip'], ['FIP Hip-hop', 'fiphiphop', 'fip'],
+  ['FIP Sacré français', 'fipsacrefrancais', 'fip'], ['France Musique La Jazz', 'francemusiquelajazz', 'francemusique'], ['France Musique Classique Plus', 'francemusiqueclassiqueplus', 'francemusique'],
+  ['France Musique Concerts', 'francemusiqueconcertsradiofrance', 'francemusique'], ['France Musique Contemporaine', 'francemusiquelacontemporaine', 'francemusique'],
+  ['France Musique La BO', 'francemusiquelabo', 'francemusique'], ['France Musique Baroque', 'francemusiquebaroque', 'francemusique'],
+].map(([name, m, p]) => ({ id: m, name, url: `https://icecast.radiofrance.fr/${m}-midfi.mp3`, logo: `https://www.radiofrance.fr/external/favicons/${p}/favicon.png`, tags: 'Webradio Radio France' }))); // rf : identifiant « livemeta » de Radio France (titre en cours)
 const RF_SLUG = { franceinter: 1, franceinfo: 2, franceculture: 5, francemusique: 4, fip: 7, mouv: 6 };
-const rfFor = (name, url) => { const m = /icecast\.radiofrance\.fr\/(franceinter|franceinfo|franceculture|francemusique|fip|mouv)/.exec(url || ''); if (m) return RF_SLUG[m[1]]; const n = (name || '').toLowerCase().replace(/[^a-z]/g, ''); return RF_SLUG[n] || undefined; };
+const rfFor = (name, url) => { const m = /icecast\.radiofrance\.fr\/(franceinter|franceinfo|franceculture|francemusique|fip|mouv)-/.exec(url || ''); if (m) return RF_SLUG[m[1]]; const n = (name || '').toLowerCase().replace(/[^a-z]/g, ''); return RF_SLUG[n] || undefined; };
 const RF_LOGO = { 1: 'franceinter', 2: 'franceinfo', 5: 'franceculture', 4: 'francemusique', 7: 'fip', 6: 'mouv' };
 const radLogo = r => r.logo || (() => { const id = r.rf || rfFor(r.name, r.url); return id ? `https://www.radiofrance.fr/external/favicons/${RF_LOGO[id]}/favicon.png` : ''; })();
 const radFavs = () => xget('radios.v1', []).filter(r => !blocked(r));
@@ -267,7 +273,13 @@ async function radNow(r) {
     if ('mediaSession' in navigator) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title || r.name, artist: sub.slice(1).join(' · ') || r.name, artwork: img ? [{ src: img, sizes: '400x400' }] : [] }); } catch {}
   } catch {}
 }
+const rfLocal = (q, o) => { const n = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); const w = n(q).trim(); const tagOk = { jazz: /jazz/, rock: /rock/, electronic: /electro/, classical: /classi|baroque|concert|contemp/, pop: /pop/, music: /./, oldies: /sacre/ }[o.tag];
+  if (o.tag && !tagOk) return []; if (o.country === 'FR' || !o.country) return RADIO_FR.filter(r => (!w || n(r.name).includes(w) || n('radio france').includes(w)) && (!o.tag || tagOk.test(n(r.name)) || o.tag === 'music')); return []; };
 async function radSearch(q, o = {}) {
+  const loc = rfLocal(q, o), merge = a => { const u = new Set(loc.map(r => r.url)); return loc.concat(a.filter(r => !u.has(r.url))); };
+  return merge(await radSearchNet(q, o).catch(e => { if (loc.length) return []; throw e; }));
+}
+async function radSearchNet(q, o = {}) {
   let lastErr;
   const qs = '/json/stations/search?hidebroken=true&order=clickcount&reverse=true&limit=80' + (q ? '&name=' + encodeURIComponent(q) : '') + (o.tag ? '&tag=' + encodeURIComponent(o.tag) : '') + (o.country ? '&countrycode=' + o.country : '') + (o.lang ? '&language=' + o.lang : '');
   for (const base of RADIO_API) {
