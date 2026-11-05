@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-05.109';
+const APP_VERSION = '2026-11-05.110';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -897,8 +897,8 @@ function reconnect() {
   const delay = Math.min(60000, 3000 * Math.pow(1.6, rcN)); rcN++;
   rcT = setTimeout(() => {
     if (!navigator.onLine) { reconnect(); return; }
-    const t = audio.currentTime || 0, src = audio.src;
-    const go = () => { try { audio.currentTime = t; } catch {} audio.play().catch(() => reconnect()); };
+    const t = curEp && curEp.live ? 0 : (audio.currentTime || 0), src = audio.src;
+    const go = () => { try { if (t > 0) audio.currentTime = t; } catch {} audio.play().catch(() => reconnect()); };
     audio.addEventListener('loadedmetadata', go, { once: true }); audio.src = src; audio.load();
   }, delay);
 }

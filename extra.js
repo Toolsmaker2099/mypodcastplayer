@@ -227,13 +227,35 @@ const RADIO_FR = [
   ['France Inter', 'https://icecast.radiofrance.fr/franceinter-midfi.mp3'], ['franceinfo', 'https://icecast.radiofrance.fr/franceinfo-midfi.mp3'],
   ['France Culture', 'https://icecast.radiofrance.fr/franceculture-midfi.mp3'], ['France Musique', 'https://icecast.radiofrance.fr/francemusique-midfi.mp3'],
   ['FIP', 'https://icecast.radiofrance.fr/fip-midfi.mp3'], ["Mouv'", 'https://icecast.radiofrance.fr/mouv-midfi.mp3'],
-].map(([name, url]) => ({ id: url, name, url, logo: '' }));
+].map(([name, url], i) => ({ id: url, name, url, logo: '', rf: [1, 2, 5, 4, 7, 6][i] })); // rf : identifiant « livemeta » de Radio France (titre en cours)
 const radFavs = () => xget('radios.v1', []);
 const radIsFav = r => radFavs().some(x => x.url === r.url);
-function radToggle(r) { const l = radFavs(), i = l.findIndex(x => x.url === r.url); i >= 0 ? l.splice(i, 1) : l.push({ id: r.url, name: r.name, url: r.url, logo: r.logo || '' }); xset('radios.v1', l); }
+function radToggle(r) { const l = radFavs(), i = l.findIndex(x => x.url === r.url); i >= 0 ? l.splice(i, 1) : l.push({ id: r.url, name: r.name, url: r.url, logo: r.logo || '', rf: r.rf, tags: r.tags || '' }); xset('radios.v1', l); }
+let radTimer = null, curRadio = null;
 function playRadio(r) {
   queue = []; qi = -1; qCtx = { show: 'Radio en direct', art: r.logo || '', feedUrl: '', auto: false };
-  play({ title: r.name, url: r.url, live: true, image: r.logo || '' }, 'Radio en direct', r.logo || '', '');
+  play({ title: r.name, url: r.url, live: true, image: r.logo || '' }, r.tags ? 'En direct · ' + r.tags : 'Radio en direct', r.logo || '', '');
+  curRadio = r; clearInterval(radTimer); radNow(r);
+  if (r.rf) radTimer = setInterval(() => radNow(r), 20000);
+}
+// Informations « en ce moment » : titre du morceau ou de l'émission, artiste, image (Radio France publie ces données ; les autres radios n'en exposent pas au navigateur).
+async function radNow(r) {
+  if (!r.rf) return;
+  if (!curEp || !curEp.live || curRadio !== r) { clearInterval(radTimer); return; }
+  try {
+    const d = await (await fetch('https://api.radiofrance.fr/livemeta/pull/' + r.rf)).json(), now = Date.now() / 1000;
+    const cur = (d.levels || []).map(l => d.steps[l.items[l.position]]).filter(Boolean).map(s => s).sort((a, b) => (a.depth || 0) - (b.depth || 0));
+    if (!cur.length) return;
+    const top = cur[0], deep = cur[cur.length - 1], song = deep.embedType === 'song' || (deep.authors && deep !== top);
+    let title = song ? deep.title : top.title, sub = [r.name];
+    if (song && deep.authors) sub.push(deep.authors + (deep.anneeEditionMusique ? ' (' + deep.anneeEditionMusique + ')' : ''));
+    if (song && top !== deep && top.title) sub.push(top.title);
+    const img = (song ? (deep.visual || deep.visuelYoutube) : top.visual) || top.visual || r.logo || '';
+    if (!curEp || !curEp.live || curRadio !== r) return;
+    $('#np-title').textContent = title || r.name; $('#np-show').textContent = sub.join(' · ');
+    if (img && /^https:/.test(img)) { $('#np-art').src = img; $('#np-art').style.visibility = 'visible'; }
+    if ('mediaSession' in navigator) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title || r.name, artist: sub.slice(1).join(' · ') || r.name, artwork: img ? [{ src: img, sizes: '400x400' }] : [] }); } catch {}
+  } catch {}
 }
 async function radSearch(q) {
   let lastErr;
@@ -243,7 +265,7 @@ async function radSearch(q) {
       if (!r.ok) throw new Error(r.status);
       const seen = new Set();
       return (await r.json()).filter(s => (s.url_resolved || s.url) && !RADIO_BLOCK.test(s.name) && !seen.has(s.name.toLowerCase()) && seen.add(s.name.toLowerCase()))
-        .map(s => ({ id: s.stationuuid, name: s.name.trim(), url: (s.url_resolved || s.url).replace(/^http:/, 'https:'), logo: /^https:/.test(s.favicon || '') ? s.favicon : '' }));
+        .map(s => ({ id: s.stationuuid, name: s.name.trim(), url: (s.url_resolved || s.url).replace(/^http:/, 'https:'), logo: /^https:/.test(s.favicon || '') ? s.favicon : '', tags: [(s.tags || '').split(',').slice(0, 3).join(', '), s.bitrate ? s.bitrate + ' kb/s' : ''].filter(Boolean).join(' · ') }));
     } catch (e) { lastErr = e; }
   }
   throw lastErr || new Error('indisponible');
