@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-05.135';
+const APP_VERSION = '2026-11-05.136';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -968,19 +968,15 @@ showNight();
       let target;
       if (real) target = Math.pow(Math.min(1, raw[i] / peak), 1.4);
       else if (playing) target = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(t / 260 + i * 0.7)) + 0.25 * (0.5 + 0.5 * Math.sin(t / 130 + i * 1.9)) * (0.6 + 0.4 * Math.sin(t / 900 + i));
-      else target = 0;
+      else target = 0.04;
       levels[i] += (target - levels[i]) * (target > levels[i] ? 0.5 : 0.12);
     }
-    // Style égaliseur : barres à segments qui montent depuis le bas, couleur selon la hauteur, et pastille « crête » qui retombe lentement
-    const SEG = 14, gap = 2, sh = (h - gap * (SEG - 1)) / SEG, bw = w / N, cols = ['#59d9a5', '#7be0b0', '#a8e57a', '#e8e066', '#ffc15a', '#ff8d5c', '#ff5c7a'];
+    // Barres verticales qui montent depuis le bas (dégradé bleu-violet de l'appli)
+    const bw = w / N, grad = g.createLinearGradient(0, h, 0, 0);
+    grad.addColorStop(0, '#9bb0ff'); grad.addColorStop(1, '#c3a6ff'); g.fillStyle = grad;
     for (let i = 0; i < N; i++) {
-      peaks[i] = Math.max(levels[i], (peaks[i] || 0) - 0.008);
-      const x = i * bw + bw * 0.14, ww = bw * 0.72, lit = Math.round(levels[i] * SEG), pk = Math.min(SEG - 1, Math.round(peaks[i] * SEG));
-      for (let k = 0; k < SEG; k++) {
-        const y = h - (k + 1) * sh - k * gap;
-        g.fillStyle = k < lit ? cols[Math.min(cols.length - 1, Math.floor(k / SEG * cols.length))] : (k === pk && pk >= lit && peaks[i] > 0.1 ? 'rgba(255,255,255,.75)' : 'rgba(255,255,255,.07)');
-        g.beginPath(); (g.roundRect ? g.roundRect(x, y, ww, sh, Math.min(2, sh / 2)) : g.rect(x, y, ww, sh)); g.fill();
-      }
+      const bh = Math.max(4, levels[i] * h), x = i * bw + bw * 0.18, ww = bw * 0.64, y = h - bh;
+      g.beginPath(); (g.roundRect ? g.roundRect(x, y, ww, bh, ww / 2) : g.rect(x, y, ww, bh)); g.fill();
     }
   }
   function startViz() { if (!raf) raf = requestAnimationFrame(frame); }

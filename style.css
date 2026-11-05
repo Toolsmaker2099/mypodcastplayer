@@ -78,7 +78,7 @@ body.noscroll{overflow:hidden}
 #player.full #expand{display:none}
 #player.full #collapse{top:calc(12px + env(safe-area-inset-top));left:14px;right:auto;width:44px;height:44px;font-size:22px}
 #player.full #np-art{display:block;width:min(74vw,46vh,380px);aspect-ratio:1;object-fit:cover;border-radius:28px;background:linear-gradient(135deg,#1c2140,#2a1f4a);box-shadow:0 30px 80px rgba(0,0,0,.65),0 0 0 1px var(--line);margin-bottom:22px}
-#player.full #viz{display:block;width:min(80vw,400px);height:110px;margin:0 0 18px}
+#player.full #viz{display:block;width:min(80vw,400px);height:96px;margin:0 0 18px}
 #player.full .np{width:min(86vw,420px);padding:0;text-align:center}
 #player.full #np-title{font-size:20px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 #player.full .times,#player.full #seek{width:min(86vw,420px)}
