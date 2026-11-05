@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-05.128';
+const APP_VERSION = '2026-11-05.129';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -27,6 +27,7 @@ el2.preload = 'none';
 let audio = el1;
 const onAudio = (ev, fn, opts) => { const h = e => { if (e.target === audio) fn(e); }; el1.addEventListener(ev, h, opts); el2.addEventListener(ev, h, opts); };
 function useEl(el) { if (audio === el) return; const old = audio; audio = el; old.pause(); old.removeAttribute('src'); old.load(); }
+const nrmQ = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let tab = 'home', feedCache = new Map(); // cache mémoire seulement (jamais de progression)
 
@@ -477,7 +478,7 @@ async function openFeed(f, back) {
         rw('Sélection multiple', '<button id="selbtn" type="button" class="sw" role="switch"></button>', 'Marquer lu, playlist…', 'selrow') +
       `</div></details>
       <div id="selbar" class="selbar" hidden><span id="selcnt"></span><button type="button" data-a="all">Tout</button><button type="button" data-a="read">Marquer lu</button><button type="button" data-a="unread">Marquer non lu</button><button type="button" data-a="pl">+ Playlist</button><button type="button" data-a="done">Terminer</button></div>
-      <div class="eph"><h3>Épisodes</h3><span id="epcount" class="dim"></span></div><div id="eps"></div><div id="epmore"></div>`;
+      <div class="eph"><h3>Épisodes</h3><span id="epcount" class="dim"></span></div><input type="search" id="epq" class="epq" placeholder="Chercher dans les épisodes (titre, description)…" autocomplete="off"><div id="eps"></div><div id="epmore"></div>`;
     { const sv = xget('rate.v1', {})[feed.feedUrl] || 1; $('#rate').value = String(sv); $('#rate').onchange = () => { const m = xget('rate.v1', {}), v = +$('#rate').value; if (v === 1) delete m[feed.feedUrl]; else m[feed.feedUrl] = v; xset('rate.v1', m); if (feed.feedUrl === curFeedUrl) applyRate(); };
       const showSil = () => { const on = silOn(feed.feedUrl); $('#silsw').classList.toggle('on', on); $('#silsw').setAttribute('aria-checked', on); }; showSil();
       $('#silsw').onclick = () => { const m = xget('silence.v1', {}); if (m[feed.feedUrl]) delete m[feed.feedUrl]; else m[feed.feedUrl] = 1; xset('silence.v1', m); showSil(); if (feed.feedUrl === curFeedUrl) applyRate(); }; }
@@ -507,6 +508,7 @@ async function openFeed(f, back) {
       const opened = new Set([...$('#eps').querySelectorAll('.ep.open')].map(x => x.dataset.i));
       try { const m = allPrefs(); m[feed.feedUrl] = p; localStorage.setItem('epprefs.v2', JSON.stringify(m)); } catch {}
       let list = feed.episodes.map((e, i) => ({ e, i, t: Date.parse(e.date) || 0 }));
+      { const q = nrmQ($('#epq').value); if (q) list = list.filter(x => q.split(' ').every(w => nrmQ((x.e.title || '') + ' ' + (x.e.desc || '') + ' ' + (x.e.notes || '')).includes(w))); }
       if (p.min) list = list.filter(x => !durSec(x.e.dur) || durSec(x.e.dur) >= p.min * 60); // durée inconnue : conservé
       const pg = e => (tr && getProg(feed.feedUrl, e)) || {};
       if (tr && p.read === 'unread') list = list.filter(x => !pg(x.e).r);
@@ -517,7 +519,7 @@ async function openFeed(f, back) {
       curList = list.map(x => x.e); curListIdx = list.slice(0, shown).map(x => x.i);
       $('#eps').innerHTML = (list.slice(0, shown).map(({ e, i }) => `<div class="item ep${tr ? (pg(e).r ? ' isread' : ' unr') : ''}${selMode ? ' selmode' : ''}${opened.has(String(i)) ? ' open' : ''}${selMode && sel.has(i) ? ' sel' : ''}" data-i="${i}">${selMode ? '<span class="chk" aria-hidden="true">✓</span>' : ''}<div class="t"><b>${esc(e.title)}</b><small class="m">${esc([fmtDate(e.date), fmtDur(e.dur)].filter(Boolean).join(' · '))}</small>${seenAt != null && epTime(e) > seenAt ? '<span class="newpill">Nouveau</span>' : ''}${tr ? (() => { const g = pg(e), d = g.d || durSec(e.dur); return g.r ? '<span class="rdpill">✓ Lu</span>' : (g.t > 5 && d ? `<span class="pbar"><i style="width:${Math.min(100, Math.round(g.t / d * 100))}%"></i></span>` : ''); })() : ''}${e.desc ? `<p class="d">${esc(e.desc)}</p>` : ''}</div><div class="epbar">${tr ? `<button class="ibtn rbtn${pg(e).r ? ' on' : ''}" data-read aria-label="Lu / non lu">✓</button>` : ''}<button class="ibtn dlb" data-dl data-u="${esc(e.url)}" aria-label="Télécharger pour l'écouter hors ligne">${dlIcon(e.url)}</button><button class="ibtn" data-pladd aria-label="Ajouter à une playlist">＋</button><button class="ibtn" data-more aria-label="Détails">${IC.chev}</button><button class="ibtn playb wide" aria-label="Lire">${IC.play}<span>Lire</span></button></div><div class="epacts"><button type="button" class="abtn2" data-q>☰＋ À la suite</button><button type="button" class="abtn2" data-info>Chapitres et notes</button></div></div>`).join('')) || '<p class="dim">Aucun épisode ne correspond au filtre.</p>';
     };
-    $('#ord').onchange = $('#mind').onchange = $('#rd').onchange = drawEps; showTrack(); drawEps();
+    $('#ord').onchange = $('#mind').onchange = $('#rd').onchange = drawEps; $('#epq').oninput = () => { shown = 50; drawEps(); }; showTrack(); drawEps();
     epRedraw = () => { if ($('#eps') && $('#ord') && $('#ord').isConnected) { try { drawEps(); } catch {} } };
     const bindSkip = (id, key) => { $('#' + id).oninput = e => {
       const m = numMap(key), v = num(e.target.value);
@@ -671,7 +673,7 @@ function play(ep, show, art, feedUrl) {
   audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
   curFeedUrl = feedUrl; curSkipEnd = skipEndFor(feedUrl); earlyDone = false; curDurHint = durSec(ep.dur);
   const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast
-  curEp = ep; lastSave = 0; $('#player').classList.toggle('liveradio', !!ep.live);
+  curEp = ep; lastSave = 0; $('#player').classList.toggle('liveradio', !!ep.live); $('#info').innerHTML = ep.live ? 'Fiche' : 'Notes';
   const pr = trackOn(feedUrl) ? getProg(feedUrl, ep) : null, start = playStartOverride != null ? playStartOverride : pr && !pr.r && pr.t > 5 ? pr.t : skip; playStartOverride = null;
   curChaps = []; getChapters(ep).then(c => { if (curEp === ep) curChaps = c; }); chapTick(); // reprise si le suivi est activé
   if (start > 0) audio.addEventListener('canplay', () => { if (audio.duration > start) audio.currentTime = start; }, { once: true });
@@ -766,7 +768,7 @@ function sleepStep() { // fondu progressif du volume avant l'arrêt
 }
 function sleepEpDone() { if (!sleepEp) return false; setSleep(0); return true; }
 function checkSleep() {
-  if (sleepEnd && Date.now() >= sleepEnd) { audio.pause(); setSleep(0); }
+  if (sleepEnd && Date.now() >= sleepEnd) { audio.pause(); setSleep(0); if (typeof smartStopAt !== 'undefined') smartStopAt = Date.now(); }
 }
 
 // ---------- Mises à jour : app + podcasts à chaque ouverture ----------
@@ -801,7 +803,7 @@ $('#closep').onclick = () => { // ferme le lecteur : arrête la lecture (la posi
   if ('mediaSession' in navigator) { try { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } catch {} }
   document.body.classList.remove('hasplayer'); syncNav();
 };
-$('#speed').onclick = () => speedMenu($('#speed')); $('#info').onclick = () => { if (curEp) epInfo(curEp, curShow, '', curFeedUrl); else toast('Aucun épisode en cours'); };
+$('#speed').onclick = () => speedMenu($('#speed')); $('#info').onclick = () => { if (curEp && curEp.live) radFiche($('#info')); else if (curEp) epInfo(curEp, curShow, '', curFeedUrl); else toast('Aucun épisode en cours'); };
 dlInit().then(() => { if (tab === 'favs' || tab === 'home') renderFavs(); }); applyRate();
 render(); checkUpdates(); refreshFavs();
 

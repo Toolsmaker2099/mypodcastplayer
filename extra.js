@@ -168,12 +168,38 @@ function chapTick() { // nom du chapitre en cours sous le titre du lecteur
 
 // ---------- 3. Minuteur : durées, fin d'épisode, fondu ----------
 const SLEEP_FADE = 60;
+const smartOn = () => xget('sleep.smart', false) === true;
+const SMART_WIN = 120, SMART_ADD = 15, SMART_AUTO = 45;
+let smartStopAt = 0, smartMotion = 0, smartSkipNight = '';
+const nightHour = () => { const h = new Date().getHours(); return h >= 21 || h < 5; };
+const nightKey = () => { const d = new Date(); if (d.getHours() < 5) d.setDate(d.getDate() - 1); return d.toDateString(); };
+const smartBump = () => { smartMotion = Date.now(); };
+function smartExtend() {
+  setSleep(SMART_ADD); toast('Mode malin : minuteur prolongé de ' + SMART_ADD + ' min');
+  if (audio.paused) audio.play().catch(() => {});
+  smartStopAt = 0; smartMotion = 0;
+}
+let smartListen = false;
+function smartListeners(on) {
+  if (on === smartListen) return; smartListen = on;
+  const f = on ? 'addEventListener' : 'removeEventListener';
+  document[f]('pointerdown', smartBump, true); document[f]('keydown', smartBump, true);
+  window[f]('devicemotion', smartMotionEv);
+}
+function smartMotionEv(e) { const a = e.acceleration || e.accelerationIncludingGravity; if (!a) return; const m = Math.hypot(a.x || 0, a.y || 0, a.z || 0); if (e.acceleration ? m > 1.8 : Math.abs(m - 9.8) > 2.5) smartBump(); }
+function smartTick() {
+  if (!smartOn()) { smartListeners(false); return; }
+  const now = Date.now(), rem = sleepEnd ? (sleepEnd - now) / 1000 : Infinity, afterStop = smartStopAt && now - smartStopAt < SMART_WIN * 1000;
+  const watch = (isFinite(rem) && rem < SMART_WIN) || afterStop; smartListeners(watch);
+  if (watch && smartMotion && now - smartMotion < 3000 && (afterStop || rem < SMART_WIN)) smartExtend();
+}
 function sleepMenu(anchor) {
   const fade = xget('sleep.fade', true) !== false, act = typeof sleepEnd !== 'undefined' && (sleepEnd || sleepEp);
-  const el = popover(anchor, `<div class="phead">Minuteur d'arrêt</div><div class="lbody">${[15, 30, 45, 60, 90].map(m => `<button type="button" class="prow" data-m="${m}"><span>${m} minutes</span></button>`).join('')}<button type="button" class="prow" data-m="ep"><span>À la fin de l'épisode</span></button>${act ? '<button type="button" class="prow" data-m="0"><span>Désactiver</span></button>' : ''}</div><label class="lrow"><input type="checkbox" id="fadeck"${fade ? ' checked' : ''}><span>Fondu du volume avant l'arrêt</span></label>`);
+  const el = popover(anchor, `<div class="phead">Minuteur d'arrêt</div><div class="lbody">${[15, 30, 45, 60, 90].map(m => `<button type="button" class="prow" data-m="${m}"><span>${m} minutes</span></button>`).join('')}<button type="button" class="prow" data-m="ep"><span>À la fin de l'épisode</span></button>${act ? '<button type="button" class="prow" data-m="0"><span>Désactiver</span></button>' : ''}</div><label class="lrow"><input type="checkbox" id="fadeck"${fade ? ' checked' : ''}><span>Fondu du volume avant l'arrêt</span></label><label class="lrow"><input type="checkbox" id="smartck"${smartOn() ? ' checked' : ''}><span>Mode malin</span></label><small class="dim" style="display:block;padding:0 14px 10px">Lance seul un minuteur de 45 min si tu écoutes entre 21 h et 5 h, et le prolonge de 15 min si tu bouges ou touches l'écran juste avant l'arrêt.</small>`);
   if (!el) return;
-  el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const v = b.dataset.m; setSleep(v === 'ep' ? 'ep' : +v); closePop(); });
+  el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const v = b.dataset.m; if (v === '0') smartSkipNight = nightKey(); setSleep(v === 'ep' ? 'ep' : +v); closePop(); });
   el.querySelector('#fadeck').onchange = e => xset('sleep.fade', e.target.checked);
+  el.querySelector('#smartck').onchange = e => { xset('sleep.smart', e.target.checked); toast(e.target.checked ? 'Mode malin activé' : 'Mode malin désactivé'); };
   el.place();
 }
 
@@ -245,7 +271,7 @@ const radLogo = r => r.logo || (() => { const id = r.rf || rfFor(r.name, r.url);
 const radFavs = () => xget('radios.v1', []).filter(r => !blocked(r));
 const radIsFav = r => radFavs().some(x => x.url === r.url);
 function radToggle(r) { const l = radFavs(), i = l.findIndex(x => x.url === r.url); i >= 0 ? l.splice(i, 1) : l.push({ id: r.url, name: r.name, url: r.url, logo: r.logo || '', rf: r.rf, tags: r.tags || '' }); xset('radios.v1', l); }
-let radTimer = null, curRadio = null;
+let radTimer = null, curRadio = null, radMeta = null;
 function playRadio(r) {
   if (!r.rf) r = { ...r, rf: rfFor(r.name, r.url) }; // favoris enregistrés avant l'ajout des infos en direct
   r = { ...r, logo: radLogo(r) };
@@ -254,12 +280,29 @@ function playRadio(r) {
   curRadio = r; clearInterval(radTimer); radNow(r);
   if (r.rf) radTimer = setInterval(() => radNow(r), 20000);
 }
+// Fiche radio : programme en cours, prochains programmes et derniers titres diffusés (données Radio France).
+function radFiche(anchor) {
+  const r = curRadio; if (!r) return;
+  const m = radMeta && radMeta.id === r.rf ? radMeta.d : null, hm = t => new Date(t * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  let body = '';
+  if (m) {
+    const st = m.steps || {}, lv = m.levels || [], now = Date.now() / 1000;
+    const songs = Object.values(st).filter(x => x.embedType === 'song' && x.start <= now).sort((a, b) => b.start - a.start).slice(0, 8);
+    const shows = Object.values(st).filter(x => x.embedType !== 'song' && x.title && (x.depth || 0) <= 2).sort((a, b) => a.start - b.start);
+    const cur = shows.filter(x => x.start <= now && x.end > now).pop(), next = shows.filter(x => x.start > now && x.title !== (cur && cur.title)).slice(0, 4);
+    if (cur) body += `<div class="phead">En ce moment</div><div class="prow"><span><b>${esc(cur.title)}</b>${cur.end ? `<small class="dim"> jusqu'à ${hm(cur.end)}</small>` : ''}</span></div>`;
+    if (next.length) body += `<div class="phead">À suivre</div>` + next.map(x => `<div class="prow"><span>${hm(x.start)} · ${esc(x.title)}</span></div>`).join('');
+    if (songs.length) body += `<div class="phead">Derniers titres</div>` + songs.map(x => { const t = `${hm(x.start)} · ${esc(x.title)}${x.authors ? ' — ' + esc(x.authors) : ''}`; return /^https:/.test(x.path || '') ? `<a class="prow" href="${esc(x.path)}" target="_blank" rel="noopener"><span>${t}</span></a>` : `<div class="prow"><span>${t}</span></div>`; }).join('');
+  }
+  if (!body) body = '<div class="prow"><span class="dim">Cette radio ne publie pas d\'informations sur son programme.</span></div>';
+  const el = popover(anchor, `<div class="phead">${esc(r.name)}</div><div class="lbody">${body}</div>`); if (el) el.place();
+}
 // Informations « en ce moment » : titre du morceau ou de l'émission, artiste, image (Radio France publie ces données ; les autres radios n'en exposent pas au navigateur).
 async function radNow(r) {
   if (!r.rf) return;
   if (!curEp || !curEp.live || curRadio !== r) { clearInterval(radTimer); return; }
   try {
-    const d = await (await fetch('https://api.radiofrance.fr/livemeta/pull/' + r.rf)).json(), now = Date.now() / 1000;
+    const d = await (await fetch('https://api.radiofrance.fr/livemeta/pull/' + r.rf)).json(), now = Date.now() / 1000; radMeta = { id: r.rf, d };
     const cur = (d.levels || []).map(l => d.steps[l.items[l.position]]).filter(Boolean).map(s => s).sort((a, b) => (a.depth || 0) - (b.depth || 0));
     if (!cur.length) return;
     const top = cur[0], deep = cur[cur.length - 1], song = deep.embedType === 'song' || (deep.authors && deep !== top);
@@ -347,6 +390,8 @@ function renderHome() {
 }
 
 // ---------- Confort : retour automatique, signets, recherche dans la bibliothèque, Wi-Fi, raccourcis ----------
+const adSecs = () => { const v = +localStorage.getItem('ad.skip'); return [30, 60, 90, 120].includes(v) ? v : 60; };
+const adLabel = () => { const b = document.getElementById('ad'); if (b) b.textContent = 'Pub +' + adSecs() + ' s'; };
 const rwSecs = () => { const v = localStorage.getItem('rewind'); return v == null ? 5 : (+v || 0); };
 const wifiOnly = () => localStorage.getItem('dl.wifi') !== '0';
 const onCellular = () => { const c = navigator.connection; return !!(c && (c.type === 'cellular' || c.saveData)); };
@@ -424,11 +469,13 @@ function libResults() {
 }
 // Réglages : retour automatique, Wi-Fi, espace
 const settingsExtraHtml = () => `<label>Lecture</label><p class="dim sm">Retour automatique à la reprise (après une pause)</p>${seg('rwseg', RW_OPTS, String(rwSecs()))}
+  <p class="dim sm">Bouton « Pub » du lecteur : saute en avant de</p>${seg('adseg', [['30', '30 s'], ['60', '60 s'], ['90', '90 s'], ['120', '2 min']], String(adSecs()))}
   <label>Téléchargements</label><p><button type="button" id="wifi" class="tgl${wifiOnly() ? ' on' : ''}">Wi-Fi seulement : ${wifiOnly() ? 'activé' : 'désactivé'}</button></p><p class="dim sm">Activé : les téléchargements automatiques n'utilisent pas les données mobiles, et un téléchargement manuel demande confirmation.</p>
   <p id="stor" class="dim sm"></p><p><button id="dl-clear" type="button">Supprimer tous les téléchargements</button></p>
   <label>Raccourcis</label><p class="dim sm">Les raccourcis se règlent sur la page Accueil (Ajouter / Modifier). En plus, un appui long sur l'icône de l'app propose Reprendre, À écouter, Radios et Découvrir.</p>`;
 function bindSettingsExtra() {
   const rs = $('#rwseg'); if (rs) rs.onclick = e => { const b = e.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('rewind', b.dataset.v); rs.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
+  const as = $('#adseg'); if (as) as.onclick = ev => { const b = ev.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('ad.skip', b.dataset.v); adLabel(); as.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   const w = $('#wifi'); if (w) w.onclick = () => { const on = !wifiOnly(); localStorage.setItem('dl.wifi', on ? '1' : '0'); w.classList.toggle('on', on); w.textContent = 'Wi-Fi seulement : ' + (on ? 'activé' : 'désactivé'); };
   const st = async () => {
     const el = $('#stor'); if (!el) return; const tot = [...dlMeta.values()].reduce((n, s) => n + (s.size || 0), 0);
@@ -458,6 +505,11 @@ function handleHash() {
 // Branchements sur le lecteur (appelé une fois par app.js, après la création de l'élément audio)
 function bootExtra() {
   initImgFallback();
+  setInterval(smartTick, 1000);
+  onAudio('play', () => { // minuteur malin : départ automatique la nuit
+    if (!smartOn() || !nightHour() || sleepEnd || sleepEp || smartSkipNight === nightKey()) return;
+    setTimeout(() => { if (!audio.paused && !sleepEnd && !sleepEp && smartOn()) { setSleep(SMART_AUTO); toast('Mode malin : arrêt dans ' + SMART_AUTO + ' min'); } }, 3000);
+  });
   let pausedAt = 0, lastT = 0;
   onAudio('pause', () => { if (!audio.ended && curEp && !curEp.live) pausedAt = Date.now(); saveLast(); });
   onAudio('play', () => {
@@ -465,6 +517,7 @@ function bootExtra() {
     pausedAt = 0;
   });
   onAudio('timeupdate', () => { const n = Date.now(); if (n - lastT > 10000) { lastT = n; saveLast(); } });
+  adLabel(); const adb = document.getElementById('ad'); if (adb) adb.onclick = () => { if (!curEp || curEp.live) return; const n = adSecs(), d = audio.duration; try { audio.currentTime = isFinite(d) ? Math.min(d - 1, audio.currentTime + n) : audio.currentTime + n; } catch {} toast('+' + n + ' s'); };
   const bm = document.getElementById('bm'); if (bm) bm.onclick = bmAdd;
   addEventListener('hashchange', handleHash); setTimeout(handleHash, 400);
 }

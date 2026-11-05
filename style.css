@@ -372,7 +372,7 @@ button.sw.on{background:linear-gradient(135deg,#6f86ff,#b072ff);border-color:tra
 #player.mini #closep{order:4;grid-row:auto}
 #player:not(.mini):not(.full) .np{padding-right:150px}
 
-.liveradio #seek,.liveradio .times,.liveradio #prev,.liveradio #next,.liveradio #rw,.liveradio #ff,.liveradio #speed,.liveradio #info,.liveradio #np-chap{display:none!important}
+.liveradio #seek,.liveradio .times,.liveradio #prev,.liveradio #next,.liveradio #rw,.liveradio #ff,.liveradio #speed,.liveradio #np-chap{display:none!important}
 .item.radio{cursor:pointer}.item.radio img{width:48px;height:48px;border-radius:12px}
 h3.sect{margin:16px 2px 4px;font-size:15px;color:var(--dim);font-weight:600}
 #radf{margin:10px 0}#radf input{flex:1;min-width:0}
@@ -408,3 +408,7 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 .shgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:12px 6px;overflow:visible;padding:2px 0 6px;justify-items:center}
 .sctile{width:100%;max-width:84px}
 .radfil{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.radfil .seg{flex:1 1 auto}
+
+.epq{width:100%;box-sizing:border-box;margin:6px 0 10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:inherit;font:inherit}
+
+.liveradio #ad{display:none!important}
