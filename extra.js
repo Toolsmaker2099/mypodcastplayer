@@ -272,7 +272,7 @@ const radFavs = () => xget('radios.v1', []).filter(r => !blocked(r));
 const radIsFav = r => radFavs().some(x => x.url === r.url);
 function radToggle(r) { const l = radFavs(), i = l.findIndex(x => x.url === r.url); i >= 0 ? l.splice(i, 1) : l.push({ id: r.url, name: r.name, url: r.url, logo: r.logo || '', rf: r.rf, tags: r.tags || '' }); xset('radios.v1', l); }
 let radTimer = null, curRadio = null, radMeta = null;
-const rfHls = () => localStorage.getItem('rf.hls') === '1';
+const rfHls = () => true; // flux HLS toujours préféré (sans pub d'ouverture) ; retour automatique au flux classique si illisible
 const rfOfficial = u => { const m = /(?:icecast\.radiofrance\.fr|direct\.(?:franceinter|francemusique|franceculture|franceinfo|mouv|fip)\.fr(?:\/live)?|stream\.radiofrance\.fr\/(?:[a-z]+))\/?(franceinter|franceinfo|franceculture|francemusique|fip[a-z]*|mouv)[-_./]/i.exec(u || ''); return m ? `https://icecast.radiofrance.fr/${m[1].toLowerCase()}-midfi.mp3` : ''; };
 function playRadio(r) {
   { const o = rfOfficial(r.url); if (o && o !== r.url) r = { ...r, url: o }; } // flux officiel Radio France (même source que l'antenne)
@@ -476,14 +476,12 @@ function libResults() {
 // Réglages : retour automatique, Wi-Fi, espace
 const settingsExtraHtml = () => `<label>Lecture</label><p class="dim sm">Retour automatique à la reprise (après une pause)</p>${seg('rwseg', RW_OPTS, String(rwSecs()))}
   <p class="dim sm">Bouton « Pub » du lecteur : saute en avant de</p>${seg('adseg', [['30', '30 s'], ['60', '60 s'], ['90', '90 s'], ['120', '2 min']], String(adSecs()))}
-  <p><button type="button" id="rfhls" class="tgl${rfHls() ? ' on' : ''}">Flux alternatif Radio France : ${rfHls() ? 'activé' : 'désactivé'}</button></p><p class="dim sm">À essayer si une pub passe au démarrage d'une radio Radio France (Android).</p>
   <label>Téléchargements</label><p><button type="button" id="wifi" class="tgl${wifiOnly() ? ' on' : ''}">Wi-Fi seulement : ${wifiOnly() ? 'activé' : 'désactivé'}</button></p><p class="dim sm">Activé : les téléchargements automatiques n'utilisent pas les données mobiles, et un téléchargement manuel demande confirmation.</p>
   <p id="stor" class="dim sm"></p><p><button id="dl-clear" type="button">Supprimer tous les téléchargements</button></p>
   <label>Raccourcis</label><p class="dim sm">Les raccourcis se règlent sur la page Accueil (Ajouter / Modifier). En plus, un appui long sur l'icône de l'app propose Reprendre, À écouter, Radios et Découvrir.</p>`;
 function bindSettingsExtra() {
   const rs = $('#rwseg'); if (rs) rs.onclick = e => { const b = e.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('rewind', b.dataset.v); rs.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   const as = $('#adseg'); if (as) as.onclick = ev => { const b = ev.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('ad.skip', b.dataset.v); adLabel(); as.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
-  const hl = $('#rfhls'); if (hl) hl.onclick = () => { const on = !rfHls(); localStorage.setItem('rf.hls', on ? '1' : '0'); hl.classList.toggle('on', on); hl.textContent = 'Flux alternatif Radio France : ' + (on ? 'activé' : 'désactivé'); };
   const w = $('#wifi'); if (w) w.onclick = () => { const on = !wifiOnly(); localStorage.setItem('dl.wifi', on ? '1' : '0'); w.classList.toggle('on', on); w.textContent = 'Wi-Fi seulement : ' + (on ? 'activé' : 'désactivé'); };
   const st = async () => {
     const el = $('#stor'); if (!el) return; const tot = [...dlMeta.values()].reduce((n, s) => n + (s.size || 0), 0);
