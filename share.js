@@ -41,18 +41,34 @@ async function importShared(code) {
   const isList = sh.kind === 'list', n = sh.data.length;
   msg(`${isList ? 'Liste' : 'Playlist'} « ${sh.name} » : ${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''}.`);
   m.querySelector('#im-body').innerHTML = sh.data.slice(0, 12).map(x => `<div class="lrow" style="cursor:default"><span>${esc(x.title)}</span></div>`).join('') + (n > 12 ? `<p class="dim sm">… et ${n - 12} autres</p>` : '');
-  m.querySelector('#im-act').innerHTML = `<button class="abtn" id="im-add">${isList ? 'Ajouter à mes listes' : 'Ajouter à mes playlists'}</button>`;
-  m.querySelector('#im-add').onclick = () => {
-    const name = sh.name; let isPl = false;
+  const same = x => (x.name || '').trim().toLowerCase() === (sh.name || '').trim().toLowerCase();
+  const exist = isList ? listsData().lists.find(same) : plData().find(same);
+  const done = (isPl) => { m.close(); tab = 'favs'; localStorage.setItem('favtab', isPl ? 'pl' : 'pod'); render(); };
+  const apply = mode => { // mode : 'new' (nouvelle), 'replace' (remplacer), 'merge' (ajouter ce qui manque)
+    const name = sh.name;
     if (isList) {
-      const d = listsData(), id = newId(); d.lists.push({ id, name });
+      const d = listsData(); let id;
+      if (mode === 'new') { id = newId(); d.lists.push({ id, name }); } else id = exist.id;
+      if (mode === 'replace') Object.keys(d.members).forEach(u => { d.members[u] = d.members[u].filter(i => i !== id); if (!d.members[u].length) delete d.members[u]; });
       sh.data.forEach(f => { if (!f.feedUrl) return; d.members[f.feedUrl] = [...new Set([...(d.members[f.feedUrl] || []), id])]; d.pods[f.feedUrl] = d.pods[f.feedUrl] || f; });
-      saveLists(d); localStorage.setItem('favlist', id); localStorage.setItem('favtab', 'pod');
+      saveLists(d); localStorage.setItem('favlist', id); done(false);
     } else {
-      const l = plData(); l.push({ id: newId(), name, items: sh.data.filter(x => x.url) }); savePl(l); localStorage.setItem('favtab', 'pl'); isPl = true;
+      const l = plData(), items = sh.data.filter(x => x.url);
+      if (mode === 'new') l.push({ id: newId(), name, items });
+      else { const p = l.find(x => x.id === exist.id); p.items = mode === 'replace' ? items : [...p.items, ...items.filter(x => !p.items.some(y => y.url === x.url))]; }
+      savePl(l); done(true);
     }
-    m.close(); tab = 'favs'; localStorage.setItem('favtab', isPl ? 'pl' : 'pod'); render(); toast(`« ${name} » ajoutée`);
+    toast(mode === 'replace' ? `« ${name} » remplacée` : mode === 'merge' ? `« ${name} » complétée` : `« ${name} » ajoutée`);
   };
+  if (exist) {
+    const cur = isList ? Object.values(listsData().members).filter(a => a.includes(exist.id)).length : exist.items.length;
+    m.querySelector('#im-body').insertAdjacentHTML('beforebegin', `<p class="dim sm">Tu as déjà ${isList ? 'une liste' : 'une playlist'} « ${esc(exist.name)} » (${cur} ${isList ? 'podcast' : 'épisode'}${cur > 1 ? 's' : ''}).</p>`);
+    m.querySelector('#im-act').innerHTML = `<button class="abtn" id="im-merge">Ajouter ce qui manque</button><button class="abtn" id="im-repl">Remplacer ma ${isList ? 'liste' : 'playlist'}</button>`;
+    m.querySelector('#im-merge').onclick = () => apply('merge'); m.querySelector('#im-repl').onclick = () => { if (confirm(`Remplacer le contenu de « ${exist.name} » par celui du partage ?`)) apply('replace'); };
+  } else {
+    m.querySelector('#im-act').innerHTML = `<button class="abtn" id="im-add">${isList ? 'Ajouter à mes listes' : 'Ajouter à mes playlists'}</button>`;
+    m.querySelector('#im-add').onclick = () => apply('new');
+  }
 }
 // Extrait l'adresse du flux d'un lien de partage ou d'une adresse RSS brute.
 function feedFromText(t) {
