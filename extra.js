@@ -101,7 +101,7 @@ function markSeen(feed) { const m = seenMap(), mx = Math.max(0, ...feed.episodes
 function seenInit() { const m = seenMap(); let ch = false; Sync.favs().forEach(f => { const fd = feedCache.get(f.feedUrl); if (fd && m[f.feedUrl] == null) { m[f.feedUrl] = Math.max(0, ...fd.episodes.map(epTime)); ch = true; } }); if (ch) xset('seen.v1', m); }
 const newBadge = f => { const fd = feedCache.get(f.feedUrl), n = fd ? newEps(fd).length : 0; return n ? `<span class="newpill">${n} nouveau${n > 1 ? 'x' : ''}</span>` : ''; };
 function refreshNewBadge() {
-  const b = document.querySelector('nav [data-tab=listen]'); if (!b) return;
+  const b = document.querySelector('nav [data-tab=home]'); if (!b) return;
   const n = newTotal(); let i = b.querySelector('.bdg');
   if (!n) { if (i) i.remove(); return; }
   if (!i) { i = document.createElement('i'); i.className = 'bdg'; b.appendChild(i); } i.textContent = n > 99 ? '99+' : n;
@@ -249,8 +249,10 @@ async function radSearch(q) {
   throw lastErr || new Error('indisponible');
 }
 const radRow = (r, i) => `<div class="item radio" data-i="${i}"><img src="${esc(r.logo)}" alt="" onerror="this.style.visibility='hidden'"><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts"><button class="ibtn" data-rfav aria-label="Coup de cœur" title="Coup de cœur">${radIsFav(r) ? '♥' : '♡'}</button></div></div>`;
-function renderRadios(head) {
-  view.innerHTML = head + `<form id="radf" class="row"><input id="radq" placeholder="Chercher une radio (ex. Chérie FM, Nostalgie…)" autocomplete="off"><button class="abtn">Chercher</button></form><div id="radout"></div>`;
+// mode : 'lib' (mes radios), 'quick' (accueil : mes radios + Radio France), 'find' (Découvrir : recherche + suggestions)
+function renderRadios(head, mode = 'lib') {
+  const find = mode === 'find';
+  view.innerHTML = head + (find ? `<form id="radf" class="row"><input id="radq" placeholder="Chercher une radio (ex. Chérie FM, Nostalgie…)" autocomplete="off"><button class="abtn">Chercher</button></form>` : '') + `<div id="radout"></div>`;
   bindFavSeg();
   let list = [];
   const bindRows = () => view.querySelectorAll('.item.radio').forEach(el => el.onclick = ev => {
@@ -258,15 +260,27 @@ function renderRadios(head) {
     if (ev.target.closest('[data-rfav]')) { radToggle(r); ev.target.closest('[data-rfav]').textContent = radIsFav(r) ? '♥' : '♡'; return; }
     playRadio(r);
   });
-  const show = (title, l, msg) => { list = l; $('#radout').innerHTML = `<h3 class="sect">${title}</h3>` + (l.length ? l.map(radRow).join('') : `<p class="dim">${msg}</p>`); bindRows(); };
+  const show = (title, l, msg) => { list = l; $('#radout').innerHTML = (title ? `<h3 class="sect">${title}</h3>` : '') + (l.length ? l.map(radRow).join('') : `<p class="dim">${msg}</p>`); bindRows(); };
   const home = () => {
-    const f = radFavs(), rf = RADIO_FR.filter(r => !f.some(x => x.url === r.url));
-    show('Mes radios', f.concat(rf), '');
+    const f = radFavs();
+    if (mode === 'lib') show('', f, 'Aucune radio en coup de cœur. Trouve des radios dans l\'onglet Découvrir (Radios), puis touche ♡.');
+    else show(find ? 'Suggestions' : '', f.concat(RADIO_FR.filter(r => !f.some(x => x.url === r.url))), '');
   };
   home();
+  if (!find) return;
   $('#radf').onsubmit = async e => {
     e.preventDefault(); const q = $('#radq').value.trim(); if (!q) { home(); return; }
     $('#radout').innerHTML = '<p class="dim">Recherche…</p>';
     try { show('Résultats', await radSearch(q), 'Aucune radio trouvée.'); } catch { $('#radout').innerHTML = '<p class="dim">Recherche de radios indisponible (réseau).</p>'; }
   };
+}
+// ---------- Accueil : reprendre, à écouter, nouveautés, radios ----------
+function renderHome() {
+  const ft = ['q', 'new', 'radio'].includes(localStorage.getItem('hometab')) ? localStorage.getItem('hometab') : 'q', nn = newTotal(), qn = qGet().length;
+  const playing = !$('#player').hidden && curEp;
+  const resume = playing ? `<div class="resumecard"><div class="t"><small>En cours</small><b>${esc(curEp.title)}</b></div><button type="button" id="resume" class="abtn">${audio.paused ? '▶ Reprendre' : '⏸ Pause'}</button></div>` : '';
+  const head = resume + `<div class="favsegw">${seg('favseg', [['q', 'À écouter' + (qn ? ' ' + qn : '')], ['new', 'Nouveautés' + (nn ? ' ' + nn : '')], ['radio', 'Radios']], ft)}</div>`;
+  if (ft === 'new') { renderNew(head); return; }
+  if (ft === 'radio') { renderRadios(head, 'quick'); return; }
+  renderQueue(head);
 }

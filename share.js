@@ -51,7 +51,7 @@ async function importShared(code) {
     } else {
       const l = plData(); l.push({ id: newId(), name, items: sh.data.filter(x => x.url) }); savePl(l); localStorage.setItem('favtab', 'pl'); isPl = true;
     }
-    m.close(); tab = isPl ? 'listen' : 'favs'; render(); toast(`« ${name} » ajoutée`);
+    m.close(); tab = 'favs'; localStorage.setItem('favtab', isPl ? 'pl' : 'pod'); render(); toast(`« ${name} » ajoutée`);
   };
 }
 // Extrait l'adresse du flux d'un lien de partage ou d'une adresse RSS brute.

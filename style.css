@@ -376,3 +376,8 @@ button.sw.on{background:linear-gradient(135deg,#6f86ff,#b072ff);border-color:tra
 .item.radio{cursor:pointer}.item.radio img{width:48px;height:48px;border-radius:12px}
 h3.sect{margin:16px 2px 4px;font-size:15px;color:var(--dim);font-weight:600}
 #radf{margin:10px 0}#radf input{flex:1;min-width:0}
+
+.resumecard{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:6px 0 10px;border:1px solid rgba(139,127,255,.35);border-radius:16px;background:rgba(139,127,255,.08)}
+.resumecard .t{flex:1;min-width:0}.resumecard small{color:var(--dim);display:block}.resumecard b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.resumecard .abtn{height:38px;padding:0 14px;font-size:14px;flex:none}
+details.adds{margin:8px 0 12px}details.adds .acard{margin:8px 0}
