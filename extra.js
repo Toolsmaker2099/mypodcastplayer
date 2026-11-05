@@ -440,7 +440,8 @@ function bootExtra() {
 // ---------- Raccourcis personnalisables de l'accueil (synchronisés) ----------
 const scGet = () => xget('shortcuts.v1', []);
 let scEdit = false;
-function scVis(s) { const o = s.k === 'list' ? listsData().lists.find(y => y.id === s.id) : s.k === 'pl' ? plData().find(y => y.id === s.id) : null; return o && o.ic ? visHtml(o.ic, 'tile') : ''; }
+const VIS_HEART = { e: '❤️', c: 1 };
+function scVis(s) { if (s.k === 'list' && s.id === 'all') return visHtml(VIS_HEART, 'tile'); const o = s.k === 'list' ? listsData().lists.find(y => y.id === s.id) : s.k === 'pl' ? plData().find(y => y.id === s.id) : null; return o && o.ic ? visHtml(o.ic, 'tile') : ''; }
 function shortcutsHtml() {
   const l = scGet(), tile = (s, i) => `<button type="button" class="sctile" data-sc="${i}">${scVis(s) || ((s.img || (s.k === 'radio' ? radLogo(s) : '')) ? `<img src="${esc(s.img || radLogo(s))}" alt="" onerror="this.remove()">` : `<span class="scini">${esc((s.name || '?').trim().charAt(0).toUpperCase())}</span>`)}<span class="scn">${esc(s.name)}</span>${scEdit ? '<i class="scx" aria-hidden="true">✕</i>' : ''}</button>`;
   return `<div class="shortcuts"><div class="shhead"><b>Raccourcis</b><span><button type="button" class="tgl" id="scadd">＋ Ajouter</button>${l.length ? `<button type="button" class="tgl${scEdit ? ' on' : ''}" id="scedit">${scEdit ? 'Terminé' : 'Modifier'}</button>` : ''}</span></div>${l.length ? `<div class="shgrid">${l.map(tile).join('')}</div>` : '<p class="dim sm">Ajoute tes radios, podcasts, listes ou playlists préférés pour les lancer en un geste.</p>'}</div>`;
@@ -463,6 +464,7 @@ function scPicker() {
   const rads = radFavs(); rads.forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: radLogo(r), rf: r.rf, tags: r.tags }]));
   RADIO_FR.filter(r => !rads.some(x => x.url === r.url)).forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: radLogo(r), rf: r.rf }]));
   Sync.favs().forEach(f => items.push(['Podcasts', { k: 'pod', name: f.title, img: f.image, pod: podSnap(f) }]));
+  items.push(['Listes de podcasts', { k: 'list', id: 'all', name: 'Coups de cœur' }]);
   listsData().lists.forEach(x => items.push(['Listes de podcasts', { k: 'list', id: x.id, name: x.name }]));
   plData().forEach(p => items.push(['Playlists', { k: 'pl', id: p.id, name: p.name }]));
   const key = s => s.k + ':' + (s.url || s.id || (s.pod && s.pod.feedUrl));

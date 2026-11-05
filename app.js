@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-05.118';
+const APP_VERSION = '2026-11-05.119';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -146,7 +146,7 @@ function renderPodcastFavs(head) {
   const all = Sync.favs(), d = listsData();
   let cur = localStorage.getItem('favlist') || 'all'; if (cur !== 'all' && !d.lists.some(x => x.id === cur)) cur = 'all';
   const l = cur === 'all' ? all : Object.keys(d.members).filter(u => d.members[u].includes(cur)).map(u => d.pods[u] || all.find(f => f.feedUrl === u)).filter(Boolean);
-  const chips = `<div class="tglrow lchips"><button type="button" class="tgl${cur === 'all' ? ' on' : ''}" data-l="all">Coups de cœur</button>${d.lists.map(x => `<button type="button" class="tgl${cur === x.id ? ' on' : ''}" data-l="${x.id}">${visHtml(x.ic)}${esc(x.name)}</button>`).join('')}<button type="button" class="tgl" data-l="new">+ Nouvelle liste</button></div>` +
+  const chips = `<div class="tglrow lchips"><button type="button" class="tgl${cur === 'all' ? ' on' : ''}" data-l="all">${visHtml(VIS_HEART)}Coups de cœur</button>${d.lists.map(x => `<button type="button" class="tgl${cur === x.id ? ' on' : ''}" data-l="${x.id}">${visHtml(x.ic)}${esc(x.name)}</button>`).join('')}<button type="button" class="tgl" data-l="new">+ Nouvelle liste</button></div>` +
     `<div class="lmanagebox"><div class="lmtitle">Actions sur la liste <b>« ${esc(cur === 'all' ? 'Coups de cœur' : (d.lists.find(x => x.id === cur) || {}).name || '')} »</b></div><div class="tglrow lmanage">${cur !== 'all' ? '<button type="button" class="tgl" data-l="rename">Renommer</button><button type="button" class="tgl" data-l="visual">Visuel</button>' : ''}${l.length ? '<button type="button" class="tgl" data-l="share">Partager</button>' : ''}${cur !== 'all' ? '<button type="button" class="tgl" data-l="delete">Supprimer la liste</button>' : ''}</div></div>`;
   const empty = cur === 'all' ? '<p class="dim">Aucun coup de cœur. Utilise l\'onglet Ajouter ou la recherche.</p>' : '<p class="dim">Cette liste est vide. Ouvre un podcast des favoris et touche « Listes » pour l\'y ajouter.</p>';
   view.innerHTML = head + chips + (l.length ? l.map(f => cur === 'all' ? showItem(f, true) : showItem(f, false).replace(/<\/div><\/div>$/, '</div><button class="ibtn" data-unlist aria-label="Retirer de la liste" title="Retirer de la liste">✕</button></div>')).join('') : empty);
