@@ -417,3 +417,7 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 #player.full #np-art{width:min(74vw,32vh,360px)}
 #player.full #viz{height:72px;margin-bottom:12px}
 @media (max-height:760px){#player.full #np-art{width:min(60vw,26vh,300px);margin-bottom:12px}#player.full #viz{height:56px}}
+/* plein écran : tout tient dans l'écran, la pochette s'adapte à la hauteur disponible */
+#player.full{overflow:hidden;padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+#player.full #np-art{width:min(74vw,360px,calc(100dvh - 610px));height:auto;margin-bottom:12px}
+@media (max-height:700px){#player.full #np-art{display:none}#player.full{padding-top:calc(64px + env(safe-area-inset-top))}}
