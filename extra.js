@@ -553,7 +553,6 @@ function bindShortcuts() {
 function scPicker() {
   const have = new Set(scGet().map(s => s.k + ':' + (s.url || s.id || (s.pod && s.pod.feedUrl)))), items = [];
   const rads = radFavs(); rads.forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: radLogo(r), rf: r.rf, tags: r.tags }]));
-  RADIO_FR.filter(r => !rads.some(x => x.url === r.url)).forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: radLogo(r), rf: r.rf }]));
   Sync.favs().forEach(f => items.push(['Podcasts', { k: 'pod', name: f.title, img: f.image, pod: podSnap(f) }]));
   items.push(['Listes de podcasts', { k: 'list', id: 'all', name: 'Coups de cœur' }]);
   listsData().lists.forEach(x => items.push(['Listes de podcasts', { k: 'list', id: x.id, name: x.name }]));
