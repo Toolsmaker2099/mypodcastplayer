@@ -231,12 +231,15 @@ const RADIO_FR = [
 ].map(([name, url], i) => ({ id: url, name, url, logo: '', rf: [1, 2, 5, 4, 7, 6][i] })); // rf : identifiant « livemeta » de Radio France (titre en cours)
 const RF_SLUG = { franceinter: 1, franceinfo: 2, franceculture: 5, francemusique: 4, fip: 7, mouv: 6 };
 const rfFor = (name, url) => { const m = /icecast\.radiofrance\.fr\/(franceinter|franceinfo|franceculture|francemusique|fip|mouv)/.exec(url || ''); if (m) return RF_SLUG[m[1]]; const n = (name || '').toLowerCase().replace(/[^a-z]/g, ''); return RF_SLUG[n] || undefined; };
+const RF_LOGO = { 1: 'franceinter', 2: 'franceinfo', 5: 'franceculture', 4: 'francemusique', 7: 'fip', 6: 'mouv' };
+const radLogo = r => r.logo || (() => { const id = r.rf || rfFor(r.name, r.url); return id ? `https://www.radiofrance.fr/external/favicons/${RF_LOGO[id]}/favicon.png` : ''; })();
 const radFavs = () => xget('radios.v1', []);
 const radIsFav = r => radFavs().some(x => x.url === r.url);
 function radToggle(r) { const l = radFavs(), i = l.findIndex(x => x.url === r.url); i >= 0 ? l.splice(i, 1) : l.push({ id: r.url, name: r.name, url: r.url, logo: r.logo || '', rf: r.rf, tags: r.tags || '' }); xset('radios.v1', l); }
 let radTimer = null, curRadio = null;
 function playRadio(r) {
   if (!r.rf) r = { ...r, rf: rfFor(r.name, r.url) }; // favoris enregistrés avant l'ajout des infos en direct
+  r = { ...r, logo: radLogo(r) };
   queue = []; qi = -1; qCtx = { show: 'Radio en direct', art: r.logo || '', feedUrl: '', auto: false };
   play({ title: r.name, url: r.url, live: true, image: r.logo || '' }, r.tags ? 'En direct · ' + r.tags : 'Radio en direct', r.logo || '', '');
   curRadio = r; clearInterval(radTimer); radNow(r);
@@ -274,7 +277,7 @@ async function radSearch(q) {
   }
   throw lastErr || new Error('indisponible');
 }
-const radRow = (r, i, link) => `<div class="item radio" data-i="${i}"><img src="${esc(r.logo)}" alt="" onerror="this.style.visibility='hidden'"><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${link ? '<button class="ibtn" data-rlink aria-label="Copier un lien de raccourci" title="Copier un lien de raccourci">🔗</button>' : ''}${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
+const radRow = (r, i, link) => `<div class="item radio" data-i="${i}"><img src="${esc(radLogo(r))}" alt="" onerror="this.style.visibility='hidden'"><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${link ? '<button class="ibtn" data-rlink aria-label="Copier un lien de raccourci" title="Copier un lien de raccourci">🔗</button>' : ''}${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
 // mode : 'lib' (mes radios), 'quick' (accueil : mes radios + Radio France), 'find' (Découvrir : recherche + suggestions)
 function renderRadios(head, mode = 'lib') {
   const find = mode === 'find';
@@ -440,7 +443,7 @@ function bootExtra() {
 const scGet = () => xget('shortcuts.v1', []);
 let scEdit = false;
 function shortcutsHtml() {
-  const l = scGet(), tile = (s, i) => `<button type="button" class="sctile" data-sc="${i}">${s.img ? `<img src="${esc(s.img)}" alt="" onerror="this.remove()">` : `<span class="scini">${esc((s.name || '?').trim().charAt(0).toUpperCase())}</span>`}<span class="scn">${esc(s.name)}</span>${scEdit ? '<i class="scx" aria-hidden="true">✕</i>' : ''}</button>`;
+  const l = scGet(), tile = (s, i) => `<button type="button" class="sctile" data-sc="${i}">${(s.img || (s.k === 'radio' ? radLogo(s) : '')) ? `<img src="${esc(s.img || radLogo(s))}" alt="" onerror="this.remove()">` : `<span class="scini">${esc((s.name || '?').trim().charAt(0).toUpperCase())}</span>`}<span class="scn">${esc(s.name)}</span>${scEdit ? '<i class="scx" aria-hidden="true">✕</i>' : ''}</button>`;
   return `<div class="shortcuts"><div class="shhead"><b>Raccourcis</b><span><button type="button" class="tgl" id="scadd">＋ Ajouter</button>${l.length ? `<button type="button" class="tgl${scEdit ? ' on' : ''}" id="scedit">${scEdit ? 'Terminé' : 'Modifier'}</button>` : ''}</span></div>${l.length ? `<div class="shgrid">${l.map(tile).join('')}</div>` : '<p class="dim sm">Ajoute tes radios, podcasts, listes ou playlists préférés pour les lancer en un geste.</p>'}</div>`;
 }
 function bindShortcuts() {
@@ -450,7 +453,7 @@ function bindShortcuts() {
   document.querySelectorAll('.sctile').forEach(b => b.onclick = () => {
     const i = +b.dataset.sc, s = l[i]; if (!s) return;
     if (scEdit) { l.splice(i, 1); xset('shortcuts.v1', l); renderFavs(); return; }
-    if (s.k === 'radio') playRadio({ id: s.url, name: s.name, url: s.url, logo: s.img || '', rf: s.rf || rfFor(s.name, s.url), tags: s.tags || '' });
+    if (s.k === 'radio') playRadio({ id: s.url, name: s.name, url: s.url, logo: s.img || radLogo(s), rf: s.rf || rfFor(s.name, s.url), tags: s.tags || '' });
     else if (s.k === 'pod') openFeed(s.pod);
     else if (s.k === 'pl') { const p = plData().find(x => x.id === s.id); if (p) { if (p.items.length) playPlaylist(p); else toast('Playlist vide'); } else toast('Playlist introuvable'); }
     else if (s.k === 'list') { tab = 'favs'; localStorage.setItem('favtab', 'pod'); localStorage.setItem('favlist', s.id); render(); }
@@ -458,8 +461,8 @@ function bindShortcuts() {
 }
 function scPicker() {
   const have = new Set(scGet().map(s => s.k + ':' + (s.url || s.id || (s.pod && s.pod.feedUrl)))), items = [];
-  const rads = radFavs(); rads.forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: r.logo, rf: r.rf, tags: r.tags }]));
-  RADIO_FR.filter(r => !rads.some(x => x.url === r.url)).forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: '', rf: r.rf }]));
+  const rads = radFavs(); rads.forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: radLogo(r), rf: r.rf, tags: r.tags }]));
+  RADIO_FR.filter(r => !rads.some(x => x.url === r.url)).forEach(r => items.push(['Radios', { k: 'radio', name: r.name, url: r.url, img: radLogo(r), rf: r.rf }]));
   Sync.favs().forEach(f => items.push(['Podcasts', { k: 'pod', name: f.title, img: f.image, pod: podSnap(f) }]));
   listsData().lists.forEach(x => items.push(['Listes de podcasts', { k: 'list', id: x.id, name: x.name }]));
   plData().forEach(p => items.push(['Playlists', { k: 'pl', id: p.id, name: p.name }]));
