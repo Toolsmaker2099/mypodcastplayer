@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-06.170';
+const APP_VERSION = '2026-11-06.171';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -676,7 +676,10 @@ function play(ep, show, art, feedUrl) {
   curEp = ep; lastSave = 0; $('#player').classList.toggle('liveradio', !!ep.live); $('#info').innerHTML = ep.live ? 'Fiche' : 'Notes';
   const pr = trackOn(feedUrl) ? getProg(feedUrl, ep) : null, start = playStartOverride != null ? playStartOverride : pr && !pr.r && pr.t > 5 ? pr.t : skip; playStartOverride = null;
   curChaps = []; getChapters(ep).then(c => { if (curEp === ep) curChaps = c; }); chapTick(); // reprise si le suivi est activé
-  if (start > 0) audio.addEventListener('canplay', () => { if (audio.duration > start) audio.currentTime = start; }, { once: true });
+  if (start > 0) { // saut instantané : position de départ posée tout de suite (le navigateur démarre directement là), avec un filet de sécurité dès les métadonnées
+    try { audio.currentTime = start; } catch {}
+    audio.addEventListener('loadedmetadata', () => { if (audio.duration > start && Math.abs(audio.currentTime - start) > 1) audio.currentTime = start; }, { once: true });
+  }
   const cover = (ep.image || art || '').replace(/\d+x\d+bb/, '600x600bb');
   $('#np-art').src = cover; $('#np-art').style.visibility = cover ? 'visible' : 'hidden';
   $('#player').hidden = false; $('#np-title').textContent = ep.title; $('#np-show').textContent = show;
