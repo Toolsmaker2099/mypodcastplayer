@@ -421,3 +421,13 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 #player.full{overflow:hidden;padding-bottom:calc(14px + env(safe-area-inset-bottom))}
 #player.full #np-art{width:min(74vw,360px,calc(100dvh - 610px));height:auto;margin-bottom:12px}
 @media (max-height:700px){#player.full #np-art{display:none}#player.full{padding-top:calc(64px + env(safe-area-inset-top))}}
+/* lecteur normal : vignette à gauche du titre */
+#player:not(.mini):not(.full) #np-art{display:block;float:left;width:68px;height:68px;object-fit:cover;border-radius:14px;margin:0 12px 8px 0;box-shadow:0 0 0 1px var(--line)}
+#player:not(.mini):not(.full) .np{overflow:hidden;min-height:68px}
+#player:not(.mini):not(.full) .ctl,#player:not(.mini):not(.full) .times{clear:both}
+#player:not(.mini):not(.full) #np-title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#player:not(.mini):not(.full) #np-title{flex:1;min-width:0}
+#player:not(.mini):not(.full) #np-art{width:60px;height:60px;margin-right:10px}
+#player:not(.mini):not(.full) .np{min-height:60px}
+#player:not(.mini):not(.full) .np .eq{display:none}
+#player:not(.mini):not(.full) .np{padding-right:128px}
