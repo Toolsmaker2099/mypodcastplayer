@@ -443,6 +443,17 @@ function playMoment(o) { // o : {u, title, show, art, image, feed, t}
   queue = [{ title: o.title, url: o.u, dur: '', image: o.image || '', _show: o.show || '', _art: o.art || '', _feed: o.feed || '' }]; qi = 0;
   qCtx = { show: o.show || '', art: o.art || '', feedUrl: o.feed || '', auto: false }; playStartOverride = o.t || 0; playAt(0);
 }
+const isWin = () => new URLSearchParams(location.search).get('win') === '1';
+if (isWin()) document.documentElement.classList.add('win');
+function popOut() { // lecteur dans une fenêtre séparée (sans onglets ni barre du navigateur si l'appli est installée)
+  if (!curEp) { toast('Lance d\'abord une lecture'); return; }
+  let hash;
+  if (curEp.live && curRadio) hash = '#go=radio&u=' + encodeURIComponent(curRadio.url) + '&n=' + encodeURIComponent(curRadio.name);
+  else hash = '#m=' + b64e({ u: curEp.url, n: curEp.title, s: curShow || '', a: (qCtx && qCtx.art) || '', i: curEp.image || '', f: curFeedUrl || '', t: Math.floor(audio.currentTime || 0) });
+  const w = window.open(baseUrl() + '?win=1' + hash, 'podcasts-win', 'popup=yes,width=440,height=820,left=60,top=40');
+  if (!w) { toast('Fenêtre bloquée : autorise les fenêtres pop-up pour ce site'); return; }
+  audio.pause(); toast('Lecture reprise dans la fenêtre séparée');
+}
 const playLast = () => { const l = lastGet(); if (l) playMoment(l); };
 // Signets
 const bmGet = () => xget('bm.v1', []);
@@ -530,6 +541,7 @@ function handleHash() {
   if (p.get('m')) {
     let o; try { o = b64d(p.get('m')); } catch { return; }
     const m = modal(`<h3>Moment partagé</h3><p><b>${esc(o.n || '')}</b></p><p class="dim">${esc(o.s || '')} · à ${hms(o.t || 0)}</p><div class="shbtns"><button class="abtn" id="mm-play">▶ Écouter à ce moment</button></div><button data-close class="ghost">Fermer</button>`);
+    if (isWin()) { m.close(); playMoment({ u: o.u, title: o.n, show: o.s, art: o.a, image: o.i, feed: o.f, t: o.t }); setTimeout(() => document.getElementById('expand').click(), 400); return; }
     m.querySelector('#mm-play').onclick = () => { m.close(); playMoment({ u: o.u, title: o.n, show: o.s, art: o.a, image: o.i, feed: o.f, t: o.t }); };
     return;
   }
@@ -537,7 +549,7 @@ function handleHash() {
   if (g === 'resume' || g === 'queue') go('home', 'hometab', 'q');
   else if (g === 'radios') go('favs', 'favtab', 'radio');
   else if (g === 'search') go('search');
-  else if (g === 'radio' && p.get('u')) { go('favs', 'favtab', 'radio'); playRadio({ name: p.get('n') || 'Radio', url: p.get('u'), logo: '', rf: rfFor(p.get('n'), p.get('u')) }); }
+  else if (g === 'radio' && p.get('u')) { go('favs', 'favtab', 'radio'); playRadio({ name: p.get('n') || 'Radio', url: p.get('u'), logo: '', rf: rfFor(p.get('n'), p.get('u')) }); if (isWin()) setTimeout(() => document.getElementById('expand').click(), 400); }
 }
 // Branchements sur le lecteur (appelé une fois par app.js, après la création de l'élément audio)
 function bootExtra() {
@@ -549,6 +561,7 @@ function bootExtra() {
   }
   initImgFallback();
   setInterval(smartTick, 1000);
+  { const pb = document.getElementById('popout'); if (pb) pb.onclick = popOut; }
   onAudio('play', () => { // minuteur malin : départ automatique la nuit
     if (!smartOn() || !nightHour() || sleepEnd || sleepEp || smartSkipNight === nightKey()) return;
     setTimeout(() => { if (!audio.paused && !sleepEnd && !sleepEp && smartOn()) { setSleep(SMART_AUTO); toast('Mode intelligent : arrêt dans ' + SMART_AUTO + ' min'); } }, 3000);
