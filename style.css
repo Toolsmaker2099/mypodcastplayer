@@ -668,3 +668,5 @@ html.win #popout{display:none!important}
 :root[data-skin=walkman] #player button.on svg,:root[data-skin=walkman] #player .ctl.opts button.on svg{color:#16171a}
 :root[data-skin=walkman] #player button#pp svg{color:#e8540c}
 :root[data-skin=walkman] #collapse,:root[data-skin=walkman] #expand,:root[data-skin=walkman] #closep,:root[data-skin=walkman] #popout{background:linear-gradient(180deg,#63656b,#35363a);color:#eceef2;border-color:#050506}
+/* v173 Rétro : autocollant le plus grand possible dans la place libre (il rétrécit tout seul si l'écran est court) */
+@media (max-height:99999px){:root[data-skin=walkman] #player.full #np-art{width:auto!important;height:auto!important;aspect-ratio:1/1;flex:0 1 min(36vw,150px);min-height:72px;max-height:150px;margin-bottom:16px!important}}
