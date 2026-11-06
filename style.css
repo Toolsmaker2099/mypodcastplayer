@@ -636,3 +636,35 @@ html.win #popout{display:none!important}
 :root[data-skin=walkman] .notes a{color:#fff}
 :root[data-skin=walkman] .vemo.on{border-color:#ff7a3d;background:rgba(255,122,61,.18)}
 :root[data-skin=walkman] h1{background:none;-webkit-text-fill-color:currentColor;color:#16171a}
+/* v172 Rétro sombre : métal gris très foncé (graphite), mêmes textures, texte clair, touches graphite, orange conservé */
+:root[data-skin=walkman]{--bg:#2b2c30;--card:rgba(255,255,255,.07);--line:rgba(0,0,0,.55);--fg:#eceef2;--dim:#a9adb6;--acc:#d6d9df;--acc2:#f0f1f4}
+:root[data-skin=walkman] html,:root[data-skin=walkman]{background:#1b1c1f}
+:root[data-skin=walkman] body::before{background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,rgba(0,0,0,.08) 1px 2px),linear-gradient(180deg,#44464b 0,#2f3034 30%,#222326 100%)}
+:root[data-skin=walkman] header{background:linear-gradient(180deg,#5a5c62 0%,#3c3e43 55%,#2d2e32 100%);border-bottom:2px solid #09090a;box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 3px 8px rgba(0,0,0,.5)}
+:root[data-skin=walkman] h1{-webkit-text-fill-color:#eef0f3;color:#eef0f3;text-shadow:0 1px 0 rgba(0,0,0,.7)}
+:root[data-skin=walkman] label{color:#c9ccd3}
+:root[data-skin=walkman] .item,:root[data-skin=walkman] .panel,:root[data-skin=walkman] #install,:root[data-skin=walkman] .acard,:root[data-skin=walkman] .resumecard,:root[data-skin=walkman] .radfil{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.045));border:1px solid rgba(0,0,0,.6);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 2px 0 rgba(0,0,0,.45)}
+:root[data-skin=walkman] .seg,:root[data-skin=walkman] input,:root[data-skin=walkman] select,:root[data-skin=walkman] textarea{background:rgba(0,0,0,.38);border-color:rgba(0,0,0,.7);box-shadow:inset 0 2px 5px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.1);color:#eceef2}
+:root[data-skin=walkman] .seg button{color:#c9ccd3}
+:root[data-skin=walkman] .chip{background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.05));border-color:rgba(0,0,0,.6);color:#eceef2}
+:root[data-skin=walkman] .abtn,:root[data-skin=walkman] .ghost,:root[data-skin=walkman] .tgl,:root[data-skin=walkman] .morebtn,:root[data-skin=walkman] .pact,:root[data-skin=walkman] .tglrow button,:root[data-skin=walkman] #dl-clear,:root[data-skin=walkman] #inst-set,:root[data-skin=walkman] #install-btn,:root[data-skin=walkman] #cs,:root[data-skin=walkman] .shbtns button,:root[data-skin=walkman] .sheet button:not(.chip):not(.prow):not(.seg button),:root[data-skin=walkman] #view>p>button,:root[data-skin=walkman] #view button#fu,:root[data-skin=walkman] #bk button{border-color:#070708;background:linear-gradient(180deg,#63656b 0%,#45474c 50%,#313236 100%);color:#eceef2;text-shadow:0 1px 0 rgba(0,0,0,.6);box-shadow:0 3px 0 #060607,0 5px 7px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.3)}
+:root[data-skin=walkman] nav{background:linear-gradient(180deg,#4b4d53,#2c2d31);border-color:#08080a;box-shadow:0 8px 20px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.25)}
+:root[data-skin=walkman] nav button{border-color:#060607;background:linear-gradient(180deg,#6a6c72,#4b4d52 55%,#35363a);color:#eceef2;box-shadow:0 3px 0 #060607,inset 0 1px 0 rgba(255,255,255,.32)}
+:root[data-skin=walkman] nav button svg{filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+:root[data-skin=walkman] nav .on{background:linear-gradient(180deg,#2b2c30,#3d3f44);color:#ff7a3d;box-shadow:inset 0 2px 6px rgba(0,0,0,.7)}
+:root[data-skin=walkman] .sheet,:root[data-skin=walkman] .pop{background:linear-gradient(180deg,#4d4f55,#37393d 12%,#2d2e32);border-color:#08080a;color:#eceef2}
+:root[data-skin=walkman] .prow{color:#eceef2}
+:root[data-skin=walkman] .phead{color:#c9ccd3}
+:root[data-skin=walkman] .dim{color:#a9adb6}
+:root[data-skin=walkman] .sctile{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.04))}
+:root[data-skin=walkman] #player{background:linear-gradient(180deg,#5a5c62 0%,#3c3e43 14%,#2a2b2f 100%);border-color:#08080a}
+:root[data-skin=walkman] #player.full{background:linear-gradient(180deg,#46484d 0%,#2f3034 35%,#1f2023 100%)}
+:root[data-skin=walkman] #np-show,:root[data-skin=walkman] .times{color:#d3d6dc;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+:root[data-skin=walkman] #player .ctl button svg{color:#eceef2}
+:root[data-skin=walkman] #player button:not(#collapse):not(#expand):not(#closep):not(#popout){background:linear-gradient(180deg,#63656b 0%,#45474c 45%,#2f3034 100%);color:#eceef2;border-color:#050506}
+:root[data-skin=walkman] #player .ctl.opts button{color:#eceef2}
+:root[data-skin=walkman] #player button#pp:not(#collapse):not(#expand):not(#closep):not(#popout){background:linear-gradient(180deg,#c5c8cf,#8d9098 55%,#6a6d75);color:#e8540c;border-color:#050506}
+:root[data-skin=walkman] #player button.on,:root[data-skin=walkman] #player .ctl.opts button.on{background:linear-gradient(180deg,#8d9098,#c5c8cf);color:#16171a}
+:root[data-skin=walkman] #player button.on svg,:root[data-skin=walkman] #player .ctl.opts button.on svg{color:#16171a}
+:root[data-skin=walkman] #player button#pp svg{color:#e8540c}
+:root[data-skin=walkman] #collapse,:root[data-skin=walkman] #expand,:root[data-skin=walkman] #closep,:root[data-skin=walkman] #popout{background:linear-gradient(180deg,#63656b,#35363a);color:#eceef2;border-color:#050506}
