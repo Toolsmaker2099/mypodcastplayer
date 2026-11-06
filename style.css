@@ -623,3 +623,16 @@ html.win #popout{display:none!important}
 /* v162 Walkman normal : boutons du haut au-dessus de la plaque */
 :root[data-skin=walkman] #player:not(.mini):not(.full){padding-top:56px}
 :root[data-skin=walkman] #player:not(.mini):not(.full) .np{padding-right:10px}
+/* v169 Rétro : plus aucune teinte bleu/violet, tout en gris argenté avec l'orange des touches */
+:root[data-skin=walkman] .lmanagebox{border:1px solid rgba(0,0,0,.35);border-left:3px solid #ff7a3d;background:rgba(0,0,0,.14)}
+:root[data-skin=walkman] .lmanagebox .lmtitle b{color:#fff}
+:root[data-skin=walkman] .resumecard{border:1px solid rgba(0,0,0,.35);background:rgba(0,0,0,.14)}
+:root[data-skin=walkman] .newpill{color:#fff;background:linear-gradient(135deg,#ff9a5a,#ff6a2a);text-shadow:0 1px 0 rgba(0,0,0,.3)}
+:root[data-skin=walkman] .ep.unr b::before{background:#ff7a3d;box-shadow:0 0 6px rgba(255,122,61,.7)}
+:root[data-skin=walkman] .pbar i{background:linear-gradient(90deg,#e4e7ec,#ff9a5a)}
+:root[data-skin=walkman] .ep.sel .chk{background:linear-gradient(145deg,#f6f7f9,#c9ccd2);color:#1f2023}
+:root[data-skin=walkman] .lrow input{accent-color:#ff7a3d}
+:root[data-skin=walkman] #np-chap{color:#e9eaee}
+:root[data-skin=walkman] .notes a{color:#fff}
+:root[data-skin=walkman] .vemo.on{border-color:#ff7a3d;background:rgba(255,122,61,.18)}
+:root[data-skin=walkman] h1{background:none;-webkit-text-fill-color:currentColor;color:#16171a}

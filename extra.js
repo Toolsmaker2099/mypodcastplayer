@@ -514,7 +514,7 @@ function libResults() {
 const skinOf = () => localStorage.getItem('skin') === 'walkman' ? 'walkman' : 'modern';
 const applySkin = () => { document.documentElement.dataset.skin = skinOf(); };
 applySkin();
-const settingsExtraHtml = () => `<label>Apparence</label><p class="dim sm">Moderne, ou Walkman : cassette qui tourne, touches mécaniques qui s'enclenchent.</p>${seg('skinseg', [['modern', 'Moderne'], ['walkman', 'Walkman']], skinOf())}
+const settingsExtraHtml = () => `<label>Apparence</label><p class="dim sm">Moderne, ou Rétro : style baladeur K7, métal argenté, cassette qui tourne, touches qui s'enclenchent.</p>${seg('skinseg', [['modern', 'Moderne'], ['walkman', 'Rétro']], skinOf())}
   <label>Lecture</label><p class="dim sm">Retour automatique à la reprise (après une pause)</p>${seg('rwseg', RW_OPTS, String(rwSecs()))}
   <p class="dim sm">Bouton « Pub » du lecteur : saute en avant de</p>${seg('adseg', [['30', '30 s'], ['60', '60 s'], ['90', '90 s'], ['120', '2 min']], String(adSecs()))}
   <label>Téléchargements</label><p><button type="button" id="wifi" class="tgl${wifiOnly() ? ' on' : ''}">Wi-Fi seulement : ${wifiOnly() ? 'activé' : 'désactivé'}</button></p><p class="dim sm">Activé : les téléchargements automatiques n'utilisent pas les données mobiles, et un téléchargement manuel demande confirmation.</p>
