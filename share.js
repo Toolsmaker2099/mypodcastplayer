@@ -12,7 +12,7 @@ function modal(html) {
 const cardUrl = feed => { const p = Sync.proxy(); return p ? p + '/p?add=' + encodeURIComponent(feed.feedUrl) + '&n=' + encodeURIComponent((feed.title || '').slice(0, 60)) + '&to=' + encodeURIComponent(shareUrl(feed)) : shareUrl(feed); };
 // Feuille de partage commune (podcasts, listes, playlists) : QR code, WhatsApp, SMS, partage du système, copie du lien.
 async function shareSheet(o) {
-  const m = modal(`<h3>Partager</h3><p class="dim sm">${esc(o.sub)}</p><div id="qrbox" class="qrbox">…</div><p class="dim sm">Fais scanner ce code dans l'app (Ajouter → Scanner) ou avec l'appareil photo.</p>
+  const m = modal(`<h3>Partager</h3><p class="dim sm">${esc(o.sub)}</p><div id="qrbox" class="qrbox">…</div><p class="dim sm">Fais scanner ce code dans l'app (Ajouter → Scanner) ou avec l'appareil photo.</p>${o.note ? `<p class="dim sm">${esc(o.note)}</p>` : ''}
     <div class="shbtns">${navigator.share ? '<button id="shnat" class="favpill">Partager…</button>' : ''}<a class="favpill" id="shwa" href="https://wa.me/?text=${encodeURIComponent(o.text)}" target="_blank" rel="noopener">WhatsApp</a><a class="favpill" id="shsms" href="sms:?&body=${encodeURIComponent(o.text)}">SMS</a><button id="shcp" class="favpill">Copier le lien</button></div><button data-close class="ghost">Fermer</button>`);
   const nat = m.querySelector('#shnat'); if (nat) nat.onclick = () => navigator.share({ title: o.sub, text: o.nativeText, url: o.link }).catch(() => {});
   m.querySelector('#shcp').onclick = async e => { try { await navigator.clipboard.writeText(o.link); e.target.textContent = 'Lien copié ✓'; } catch { prompt('Copie ce lien :', o.link); } };
@@ -30,14 +30,14 @@ async function shareCollection(kind, name, data) {
   const title = `${label} « ${name} »`, desc = `${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''} à découvrir dans l'app Odecast.`;
   const base = location.origin + location.pathname.replace(/index\.html$/, ''), url = `${base}?share=${code}&n=${encodeURIComponent(title)}`, p = Sync.proxy();
   const link = p ? `${p}/p?share=${code}&n=${encodeURIComponent(title)}&d=${encodeURIComponent(desc)}&to=${encodeURIComponent(url)}` : url;
-  shareSheet({ sub: `${title} · ${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''}`, url, link, text: `Écoute ${isList ? 'ma liste' : 'ma playlist'} « ${name} » : ${link}`, nativeText: `${title} sur Podcasts` });
+  shareSheet({ sub: `${title} · ${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''}`, url, link, text: `Écoute ${isList ? 'ma liste' : 'ma playlist'} « ${name} » : ${link}`, nativeText: `${title} sur Odecast`, note: 'Ce lien est valable 7 jours : au-delà, il expire et ne s\'ouvre plus. Ta liste, elle, reste dans ton appli.' });
 }
 // Réception d'une liste ou d'une playlist partagée.
 async function importShared(code) {
   const m = modal('<h3>Partage reçu</h3><p class="dim" id="im-msg">Chargement…</p><div class="lbody" id="im-body"></div><div class="shbtns" id="im-act"></div><button data-close class="ghost">Fermer</button>');
   const msg = t => { m.querySelector('#im-msg').textContent = t; };
   let sh; try { sh = await Sync.shareGet(code); } catch { msg('Impossible de charger ce partage (réseau).'); return; }
-  if (!sh || !Array.isArray(sh.data)) { msg('Ce partage est introuvable ou a expiré.'); return; }
+  if (!sh || !Array.isArray(sh.data)) { msg('Ce lien a expiré (les liens de partage sont valables 7 jours) ou n\'existe pas. Demande à la personne de te le renvoyer.'); return; }
   sh.data = sh.data.filter(x => !blocked(x));
   const isList = sh.kind === 'list', n = sh.data.length;
   msg(`${isList ? 'Liste' : 'Playlist'} « ${sh.name} » : ${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''}.`);
