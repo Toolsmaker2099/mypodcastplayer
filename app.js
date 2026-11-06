@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-06.169';
+const APP_VERSION = '2026-11-06.170';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -799,7 +799,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => { tab = b
 $('#closep').onclick = () => { // ferme le lecteur : arrête la lecture (la position est enregistrée si le suivi est actif)
   try { saveProg(true); } catch {}
   clearTimeout(endT); setSleep(0); audio.pause(); audio.removeAttribute('src'); audio.load();
-  curEp = null; queue = []; qi = -1; curChaps = []; curFeedUrl = ''; $('#player').hidden = true; $('#player').classList.remove('full');
+  curEp = null; queue = []; qi = -1; curChaps = []; curFeedUrl = ''; $('#player').hidden = true; $('#player').classList.remove('full'); if (window.playerLeaveFull) window.playerLeaveFull();
   if ('mediaSession' in navigator) { try { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } catch {} }
   document.body.classList.remove('hasplayer'); syncNav();
 };
@@ -984,6 +984,8 @@ showNight();
   function stopViz() { cancelAnimationFrame(raf); raf = 0; }
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopViz(); else if (mode === 'full') startViz(); });
   set(mode);
+  // quitter le plein écran sans passer par les boutons (ex. arrêt du lecteur) : rend le défilement à la page
+  window.playerLeaveFull = () => { document.body.classList.remove('noscroll'); if (mode === 'full') { mode = 'normal'; pl.classList.remove('full'); stopViz(); } };
 })();
 
 // ---------- Égaliseur du lecteur réduit/normal : suit le vrai son quand l'analyse est branchée ----------
