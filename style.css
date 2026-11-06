@@ -556,3 +556,12 @@ html.win #popout{display:none!important}
 @keyframes cspin2{to{transform:rotate(360deg)}}
 @keyframes cflow{to{stroke-dashoffset:-12}}
 @media (prefers-reduced-motion:reduce){#player.playing #cassette .roller,#player.playing #cassette .capstan,#player.playing #cassette .flow{animation-duration:3s}}
+/* Réglages : plus d'air entre les sections */
+#view>label{margin-top:30px;margin-bottom:8px;padding-top:6px;border-top:1px solid var(--line)}
+#view>label:first-child{border-top:0;margin-top:8px;padding-top:0}
+#view>p.sm{margin:4px 0 12px;line-height:1.45}
+#view>p{margin:10px 0}
+#view>.seg{margin:6px 0 14px}
+#view>.seg+p.sm,#view>p.sm+.seg+p.sm{margin-top:14px}
+#view>p>button.tgl{margin:2px 0}
+:root[data-skin=walkman] .seg button.on,:root[data-skin=walkman] .tgl.on,:root[data-skin=walkman] .chip.on{background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.1));border-color:rgba(255,255,255,.4);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
