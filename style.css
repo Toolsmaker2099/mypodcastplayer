@@ -602,3 +602,12 @@ html.win #popout{display:none!important}
 :root[data-skin=walkman] #player.full #np-title{color:#f4f5f7;text-shadow:none}
 :root[data-skin=walkman] #player .ctl button svg{color:#16171a}
 :root[data-skin=walkman] #player:not(.mini):not(.full):not(.liveradio) .deck button{font-size:10px;letter-spacing:0;padding:0 1px}
+/* Walkman : vignette en vieil autocollant au-dessus de la K7 (grand) ; vignette habituelle en normal ; pas de K7 en normal/réduit */
+:root[data-skin=walkman] #viz,:root[data-skin=walkman] #player .np .eq{display:none!important}
+:root[data-skin=walkman] #np-art{display:revert!important}
+:root[data-skin=walkman] #player:not(.full) #cassette{display:none!important}
+:root[data-skin=walkman] #player.mini #np-art{display:none!important}
+:root[data-skin=walkman] #player.full #np-art{display:block!important;width:min(26vw,100px)!important;height:min(26vw,100px)!important;aspect-ratio:1;object-fit:cover;border-radius:3px;border:5px solid #f3efe2;outline:1px solid rgba(0,0,0,.35);box-shadow:0 3px 8px rgba(0,0,0,.55),inset 0 0 6px rgba(0,0,0,.25);transform:rotate(-3deg);filter:sepia(.18) contrast(.94) saturate(.9);margin:0 0 -10px;position:relative;z-index:2;align-self:center}
+:root[data-skin=walkman] #player.full #cassette{width:min(78vw,340px)}
+@media (max-height:800px){:root[data-skin=walkman] #player.full #np-art{width:70px!important;height:70px!important}:root[data-skin=walkman] #player.full #cassette{width:min(68vw,300px);margin-bottom:12px}}
+:root[data-skin=walkman] #player.full #np-art{order:-1!important;margin:0 0 -22px!important}
