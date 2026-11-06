@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-06.173';
+const APP_VERSION = '2026-11-06.174';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -673,7 +673,7 @@ function play(ep, show, art, feedUrl) {
   audio.play().catch(e => { if (e && e.name === 'NotAllowedError') note('Lecture bloquée : touche ▶.'); });
   curFeedUrl = feedUrl; curSkipEnd = skipEndFor(feedUrl); earlyDone = false; curDurHint = durSec(ep.dur);
   const skip = curSkip = skipFor(feedUrl); // intro à sauter : réglage fixe par podcast
-  curEp = ep; lastSave = 0; $('#player').classList.toggle('liveradio', !!ep.live); $('#info').innerHTML = ep.live ? 'Fiche' : 'Notes';
+  curEp = ep; lastSave = 0; $('#player').classList.toggle('liveradio', !!ep.live); if (typeof syncPodLink === 'function') syncPodLink(); $('#info').innerHTML = ep.live ? 'Fiche' : 'Notes';
   const pr = trackOn(feedUrl) ? getProg(feedUrl, ep) : null, start = playStartOverride != null ? playStartOverride : pr && !pr.r && pr.t > 5 ? pr.t : skip; playStartOverride = null;
   curChaps = []; getChapters(ep).then(c => { if (curEp === ep) curChaps = c; }); chapTick(); // reprise si le suivi est activé
   if (start > 0) { // saut instantané : position de départ posée tout de suite (le navigateur démarre directement là), avec un filet de sécurité dès les métadonnées
@@ -988,8 +988,23 @@ showNight();
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopViz(); else if (mode === 'full') startViz(); });
   set(mode);
   // quitter le plein écran sans passer par les boutons (ex. arrêt du lecteur) : rend le défilement à la page
+  // ouvrir la page du podcast en cours sans interrompre la lecture : le lecteur se réduit pour laisser voir la page
+  window.playerMiniQuiet = () => { document.body.classList.remove('noscroll'); mode = 'mini'; pl.classList.add('mini'); pl.classList.remove('full'); stopViz(); btn.setAttribute('aria-label', 'Agrandir le lecteur'); };
   window.playerLeaveFull = () => { document.body.classList.remove('noscroll'); if (mode === 'full') { mode = 'normal'; pl.classList.remove('full'); stopViz(); } };
 })();
+// Lien vers la page du podcast (nom de l'émission + bouton « Page ») : visible seulement si le flux d'origine est connu
+function podLinkable() { return !!(curEp && !curEp.live && curFeedUrl && /^https?:/i.test(curFeedUrl)); }
+function syncPodLink() { const ok = podLinkable(); $('#pod').hidden = !ok; $('#np-show').classList.toggle('lnk', ok); }
+function openPodPage() {
+  if (!podLinkable() || $('#player').classList.contains('mini')) return;
+  const f = (Sync.favs().find(x => x.feedUrl === curFeedUrl)) || { feedUrl: curFeedUrl, title: curShow };
+  if (window.playerMiniQuiet) window.playerMiniQuiet();
+  document.querySelectorAll('.modal').forEach(m => { try { m.close ? m.close() : m.remove(); } catch {} });
+  window.scrollTo(0, 0); openFeed(f, () => render());
+}
+$('#pod').onclick = openPodPage;
+$('#np-show').addEventListener('click', ev => { if ($('#np-show').classList.contains('lnk') && !$('#player').classList.contains('mini')) { ev.stopPropagation(); openPodPage(); } });
+
 
 // ---------- Égaliseur du lecteur réduit/normal : suit le vrai son quand l'analyse est branchée ----------
 (() => {
