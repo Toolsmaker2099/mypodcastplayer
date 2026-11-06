@@ -27,7 +27,7 @@ async function shareFeed(feed) {
 async function shareCollection(kind, name, data) {
   const isList = kind === 'list', label = isList ? 'Liste' : 'Playlist', n = data.length;
   let code; try { code = await Sync.shareCreate({ kind, name, data }); } catch (e) { alert('Partage impossible : ' + e.message); return; }
-  const title = `${label} « ${name} »`, desc = `${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''} à découvrir dans l'app Podiva.`;
+  const title = `${label} « ${name} »`, desc = `${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''} à découvrir dans l'app Odecast.`;
   const base = location.origin + location.pathname.replace(/index\.html$/, ''), url = `${base}?share=${code}&n=${encodeURIComponent(title)}`, p = Sync.proxy();
   const link = p ? `${p}/p?share=${code}&n=${encodeURIComponent(title)}&d=${encodeURIComponent(desc)}&to=${encodeURIComponent(url)}` : url;
   shareSheet({ sub: `${title} · ${n} ${isList ? 'podcast' : 'épisode'}${n > 1 ? 's' : ''}`, url, link, text: `Écoute ${isList ? 'ma liste' : 'ma playlist'} « ${name} » : ${link}`, nativeText: `${title} sur Podcasts` });

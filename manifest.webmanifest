@@ -1,6 +1,6 @@
 {
-  "name": "Podiva",
-  "short_name": "Podiva",
+  "name": "Odecast",
+  "short_name": "Odecast",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
