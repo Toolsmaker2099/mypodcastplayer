@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-06.162';
+const APP_VERSION = '2026-11-06.163';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -830,8 +830,8 @@ function installSteps() {
     if (d.br === 'firefox') return ["Touche le menu (⋮) en haut à droite.", "Choisis « Installer ».", "Valide."];
     return ["Touche le menu du navigateur (⋮) en haut à droite.", "Choisis « Installer l'application » (ou « Ajouter à l'écran d'accueil »).", "Valide avec « Installer ».", "Si ces choix n'apparaissent pas, ouvre la page directement dans Chrome (pas dans une autre application) et recommence."];
   }
-  if (d.br === 'firefox') return ["Firefox pour ordinateur n'installe pas les applications web : utilise Chrome ou Edge pour installer Podcasts."];
-  return ["Dans la barre d'adresse, clique sur l'icône d'installation (écran avec une flèche, à droite).", "Ou ouvre le menu (⋮) → « Enregistrer et partager » → « Installer Podcasts… » (Edge : menu ··· → Applications → « Installer ce site comme une application »).", "Valide avec « Installer »."];
+  if (d.br === 'firefox') return ["Firefox pour ordinateur n'installe pas les applications web : utilise Chrome ou Edge pour installer Podiva."];
+  return ["Dans la barre d'adresse, clique sur l'icône d'installation (écran avec une flèche, à droite).", "Ou ouvre le menu (⋮) → « Enregistrer et partager » → « Installer Podiva… » (Edge : menu ··· → Applications → « Installer ce site comme une application »).", "Valide avec « Installer »."];
 }
 async function installApp() {
   const p = window.__bip;

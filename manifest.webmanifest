@@ -1,6 +1,6 @@
 {
-  "name": "Podcasts",
-  "short_name": "Podcasts",
+  "name": "Podiva",
+  "short_name": "Podiva",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
