@@ -397,7 +397,7 @@ function renderHome() {
 
 // ---------- Confort : retour automatique, signets, recherche dans la bibliothèque, Wi-Fi, raccourcis ----------
 const adSecs = () => { const v = +localStorage.getItem('ad.skip'); return [30, 60, 90, 120].includes(v) ? v : 60; };
-const adLabel = () => { const b = document.getElementById('ad'); if (b) b.textContent = 'Pub +' + adSecs() + ' s'; };
+const adLabel = () => { const b = document.getElementById('ad'); if (b) b.textContent = 'Pub ' + adSecs() + ' s'; };
 const rwSecs = () => { const v = localStorage.getItem('rewind'); return v == null ? 5 : (+v || 0); };
 const wifiOnly = () => localStorage.getItem('dl.wifi') !== '0';
 const onCellular = () => { const c = navigator.connection; return !!(c && (c.type === 'cellular' || c.saveData)); };

@@ -431,3 +431,21 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 #player:not(.mini):not(.full) .np{min-height:60px}
 #player:not(.mini):not(.full) .np .eq{display:none}
 #player:not(.mini):not(.full) .np{padding-right:128px}
+/* lecteur normal : les boutons d'options encadrent le bouton pause au lieu de laisser du vide */
+.deck{display:contents}
+#player:not(.mini):not(.full):not(.liveradio) .deck{display:grid;grid-template-columns:1fr 1fr 84px 1fr 1fr;grid-template-rows:auto auto auto;gap:8px;align-items:center;margin:10px 0 6px}
+#player:not(.mini):not(.full):not(.liveradio) .deck .ctl,#player:not(.mini):not(.full):not(.liveradio) .deck .ctl.opts{display:contents}
+#player:not(.mini):not(.full):not(.liveradio) .deck button{width:100%;min-width:0;padding:0 4px;height:40px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+#player:not(.mini):not(.full):not(.liveradio) .deck #pp{grid-area:1/3/3/4;width:84px;height:84px;justify-self:center;padding:0}
+#player:not(.mini):not(.full):not(.liveradio) .deck #prev{grid-area:1/1}
+#player:not(.mini):not(.full):not(.liveradio) .deck #rw{grid-area:1/2}
+#player:not(.mini):not(.full):not(.liveradio) .deck #ff{grid-area:1/4}
+#player:not(.mini):not(.full):not(.liveradio) .deck #next{grid-area:1/5}
+#player:not(.mini):not(.full):not(.liveradio) .deck #night{grid-area:2/1}
+#player:not(.mini):not(.full):not(.liveradio) .deck #sleep{grid-area:2/2}
+#player:not(.mini):not(.full):not(.liveradio) .deck #ad{grid-area:2/4}
+#player:not(.mini):not(.full):not(.liveradio) .deck #bm{grid-area:2/5}
+#player:not(.mini):not(.full):not(.liveradio) .deck #speed{grid-area:3/1/4/3}
+#player:not(.mini):not(.full):not(.liveradio) .deck #info{grid-area:3/4/4/6}
+#player:not(.mini):not(.full):not(.liveradio) .deck #night span,#player:not(.mini):not(.full):not(.liveradio) .deck #sleep span{display:none}
+#player:not(.mini):not(.full):not(.liveradio) .deck button{font-size:12px;padding:0 2px}
