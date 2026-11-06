@@ -677,3 +677,8 @@ html.win #popout{display:none!important}
 #player.liveradio #pod{display:none!important}
 #player:not(.mini):not(.full):not(.liveradio) .deck #pod{grid-area:3/3;grid-column:auto;font-size:11px}
 #pod[hidden]{display:none!important}
+/* v175 Rétro : une touche enclenchée reste alignée avec ses voisines (l'enfoncement se lit à l'ombre et à la couleur, sans décalage) */
+:root[data-skin=walkman] #player button.on,:root[data-skin=walkman] #player .ctl.opts button.on{transform:none;box-shadow:0 1px 0 #050506,inset 0 3px 8px rgba(0,0,0,.6)}
+/* v175 Rétro : touche active = enfoncée (plus sombre) + texte orange, sans décalage */
+:root[data-skin=walkman] #player button.on:not(#collapse):not(#expand):not(#closep):not(#popout),:root[data-skin=walkman] #player .ctl.opts button.on:not(#collapse):not(#expand):not(#closep):not(#popout){transform:none;background:linear-gradient(180deg,#1b1c1f,#2a2b2f);color:#ff7a3d;border-color:#050506;box-shadow:0 1px 0 #050506,inset 0 3px 8px rgba(0,0,0,.75);text-shadow:none}
+:root[data-skin=walkman] #player button.on svg,:root[data-skin=walkman] #player .ctl.opts button.on svg{color:#ff7a3d}
