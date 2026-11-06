@@ -282,7 +282,7 @@ function playRadio(r) {
   r = { ...r, logo: radLogo(r) };
   queue = []; qi = -1; qCtx = { show: 'Radio en direct', art: r.logo || '', feedUrl: '', auto: false };
   play({ title: r.name, url: r.url, live: true, image: r.logo || '' }, r.tags ? 'En direct · ' + r.tags : 'Radio en direct', r.logo || '', '');
-  if (r.fallback) { const fb = r.fallback; audio.addEventListener('error', function h() { audio.removeEventListener('error', h); if (curRadio && curRadio.url !== fb && curEp && curEp.live) { toast('Flux alternatif indisponible : flux standard'); playRadio({ ...curRadio, url: fb, fallback: '' }); } }, { once: true }); }
+  if (r.fallback) { const fb = r.fallback, t0 = setTimeout(() => { if (curRadio && curRadio.url === r.url && curEp && curEp.live && (audio.paused || audio.readyState < 3)) { toast('Flux sans pub indisponible : flux standard'); playRadio({ ...curRadio, url: fb, fallback: '' }); } }, 9000); audio.addEventListener('playing', () => clearTimeout(t0), { once: true }); audio.addEventListener('error', function h() { audio.removeEventListener('error', h); if (curRadio && curRadio.url !== fb && curEp && curEp.live) { toast('Flux alternatif indisponible : flux standard'); playRadio({ ...curRadio, url: fb, fallback: '' }); } }, { once: true }); }
   curRadio = r; clearInterval(radTimer); radNow(r); radBoxUpdate();
   crispLogo(r.logo).then(u => { if (u && curRadio === r && /favicons\//.test($('#np-art').src)) $('#np-art').src = u; });
   if (r.rf) radTimer = setInterval(() => radNow(r), 20000);
