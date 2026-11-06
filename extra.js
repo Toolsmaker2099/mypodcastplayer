@@ -283,32 +283,58 @@ function playRadio(r) {
   queue = []; qi = -1; qCtx = { show: 'Radio en direct', art: r.logo || '', feedUrl: '', auto: false };
   play({ title: r.name, url: r.url, live: true, image: r.logo || '' }, r.tags ? 'En direct · ' + r.tags : 'Radio en direct', r.logo || '', '');
   if (r.fallback) { const fb = r.fallback; audio.addEventListener('error', function h() { audio.removeEventListener('error', h); if (curRadio && curRadio.url !== fb && curEp && curEp.live) { toast('Flux alternatif indisponible : flux standard'); playRadio({ ...curRadio, url: fb, fallback: '' }); } }, { once: true }); }
-  curRadio = r; clearInterval(radTimer); radNow(r);
+  curRadio = r; clearInterval(radTimer); radNow(r); radBoxUpdate();
+  crispLogo(r.logo).then(u => { if (u && curRadio === r && /favicons\//.test($('#np-art').src)) $('#np-art').src = u; });
   if (r.rf) radTimer = setInterval(() => radNow(r), 20000);
 }
+// Logo net : les logos Radio France n'existent qu'en 48 px ; on les agrandit en rendant leurs bords nets (couleurs d'origine conservées).
+const crispCache = {};
+function crispLogo(url) {
+  const m = /favicons\/([a-z]+)\/favicon\.png/.exec(url || ''); if (!m) return Promise.resolve('');
+  const slug = m[1]; if (crispCache[slug]) return Promise.resolve(crispCache[slug]);
+  return new Promise(res => {
+    const im = new Image(); im.onload = () => { try {
+      const n = im.naturalWidth, S = 384, c0 = document.createElement('canvas'); c0.width = c0.height = n; const g0 = c0.getContext('2d', { willReadFrequently: true }); g0.drawImage(im, 0, 0);
+      const d0 = g0.getImageData(0, 0, n, n).data, cnt = new Map();
+      for (let i = 0; i < d0.length; i += 4) if (d0[i + 3] > 250) { const k = (d0[i] >> 4) + ',' + (d0[i + 1] >> 4) + ',' + (d0[i + 2] >> 4); const o = cnt.get(k) || { n: 0, r: 0, g: 0, b: 0 }; o.n++; o.r += d0[i]; o.g += d0[i + 1]; o.b += d0[i + 2]; cnt.set(k, o); }
+      const all = [...cnt.values()].sort((a, b) => b.n - a.n), tot = all.reduce((t, o) => t + o.n, 0), pal = all.filter(o => o.n / tot > 0.1).slice(0, 3).map(o => [o.r / o.n, o.g / o.n, o.b / o.n]);
+      const c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, S, S);
+      const img = g.getImageData(0, 0, S, S), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] < 128) { d[i + 3] = 0; continue; } d[i + 3] = 255; let best = 0, bd = 1e9;
+        pal.forEach((p, j) => { const e = (d[i] - p[0]) ** 2 + (d[i + 1] - p[1]) ** 2 + (d[i + 2] - p[2]) ** 2; if (e < bd) { bd = e; best = j; } });
+        d[i] = pal[best][0]; d[i + 1] = pal[best][1]; d[i + 2] = pal[best][2];
+      }
+      g.putImageData(img, 0, 0); res(crispCache[slug] = c.toDataURL('image/png'));
+    } catch { res(''); } }; im.onerror = () => res(''); im.src = './icons/radio/' + slug + '.png';
+  });
+}
 // Fiche radio : programme en cours, prochains programmes et derniers titres diffusés (données Radio France).
-function radFiche(anchor) {
-  const r = curRadio; if (!r) return;
+function radFicheBody(r, short) {
   const m = radMeta && radMeta.id === r.rf ? radMeta.d : null, hm = t => new Date(t * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   let body = '';
   if (m) {
-    const st = m.steps || {}, lv = m.levels || [], now = Date.now() / 1000;
-    const songs = Object.values(st).filter(x => x.embedType === 'song' && x.start <= now).sort((a, b) => b.start - a.start).slice(0, 8);
+    const st = m.steps || {}, now = Date.now() / 1000;
+    const songs = Object.values(st).filter(x => x.embedType === 'song' && x.start <= now).sort((a, b) => b.start - a.start).slice(0, short ? 3 : 8);
     const shows = Object.values(st).filter(x => x.embedType !== 'song' && x.title && (x.depth || 0) <= 2).sort((a, b) => a.start - b.start);
-    const cur = shows.filter(x => x.start <= now && x.end > now).pop(), next = shows.filter(x => x.start > now && x.title !== (cur && cur.title)).slice(0, 4);
+    const cur = shows.filter(x => x.start <= now && x.end > now).pop(), next = shows.filter(x => x.start > now && x.title !== (cur && cur.title)).slice(0, short ? 2 : 4);
     if (cur) body += `<div class="phead">En ce moment</div><div class="prow"><span><b>${esc(cur.title)}</b>${cur.end ? `<small class="dim"> jusqu'à ${hm(cur.end)}</small>` : ''}</span></div>`;
     if (next.length) body += `<div class="phead">À suivre</div>` + next.map(x => `<div class="prow"><span>${hm(x.start)} · ${esc(x.title)}</span></div>`).join('');
     if (songs.length) body += `<div class="phead">Derniers titres</div>` + songs.map(x => { const t = `${hm(x.start)} · ${esc(x.title)}${x.authors ? ' — ' + esc(x.authors) : ''}`; return /^https:/.test(x.path || '') ? `<a class="prow" href="${esc(x.path)}" target="_blank" rel="noopener"><span>${t}</span></a>` : `<div class="prow"><span>${t}</span></div>`; }).join('');
   }
-  if (!body) body = '<div class="prow"><span class="dim">Cette radio ne publie pas d\'informations sur son programme.</span></div>';
-  const el = popover(anchor, `<div class="phead">${esc(r.name)}</div><div class="lbody">${body}</div>`); if (el) el.place();
+  return body || '<div class="prow"><span class="dim">Cette radio ne publie pas d\'informations sur son programme.</span></div>';
 }
+function radFiche(anchor) {
+  const r = curRadio; if (!r) return;
+  const el = popover(anchor, `<div class="phead">${esc(r.name)}</div><div class="lbody">${radFicheBody(r, false)}</div>`); if (el) el.place();
+}
+function radBoxUpdate() { const b = document.getElementById('radbox'); if (!b) return; b.innerHTML = curRadio && curEp && curEp.live ? radFicheBody(curRadio, true) : ''; }
 // Informations « en ce moment » : titre du morceau ou de l'émission, artiste, image (Radio France publie ces données ; les autres radios n'en exposent pas au navigateur).
 async function radNow(r) {
   if (!r.rf) return;
   if (!curEp || !curEp.live || curRadio !== r) { clearInterval(radTimer); return; }
   try {
-    const d = await (await fetch('https://api.radiofrance.fr/livemeta/pull/' + r.rf)).json(), now = Date.now() / 1000; radMeta = { id: r.rf, d };
+    const d = await (await fetch('https://api.radiofrance.fr/livemeta/pull/' + r.rf)).json(), now = Date.now() / 1000; radMeta = { id: r.rf, d }; radBoxUpdate();
     const cur = (d.levels || []).map(l => d.steps[l.items[l.position]]).filter(Boolean).map(s => s).sort((a, b) => (a.depth || 0) - (b.depth || 0));
     if (!cur.length) return;
     const top = cur[0], deep = cur[cur.length - 1], song = deep.embedType === 'song' || (deep.authors && deep !== top);
