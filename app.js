@@ -1,4 +1,4 @@
-const APP_VERSION = '2026-11-06.143';
+const APP_VERSION = '2026-11-06.144';
 const $ = s => document.querySelector(s);
 const svg = (d, n = 20, fill = false) => `<svg viewBox="0 0 24 24" width="${n}" height="${n}" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'} aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -988,7 +988,7 @@ showNight();
 
 // ---------- Égaliseur du lecteur réduit/normal : suit le vrai son quand l'analyse est branchée ----------
 (() => {
-  const pl = $('#player'), bars = [...document.querySelectorAll('.eq i')];
+  const pl = $('#player'), bars = [...document.querySelectorAll('.eq i')], wide = [...document.querySelectorAll('.eqw i')];
   const bands = [[100, 400], [400, 1200], [1200, 3000], [3000, 7000]];
   let lv = [0, 0, 0, 0], peak = 0.3, buf = null;
   function tick() {
@@ -996,7 +996,7 @@ showNight();
     if (document.hidden || pl.hidden) return;
     const live = audio === el1 && !!analyser && !!ctx && ctx.state === 'running' && !audio.paused && !pl.classList.contains('full');
     pl.classList.toggle('live', live);
-    if (!live) { if (bars[0].style.height) bars.forEach(b => (b.style.height = '')); return; }
+    if (!live) { if (bars[0].style.height) { bars.forEach(b => (b.style.height = '')); wide.forEach(b => (b.style.height = '')); } return; }
     buf = buf || new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(buf);
     const binHz = ctx.sampleRate / analyser.fftSize; let mx = 0; const raw = bands.map(([f0, f1], i) => {
       let s = 0; for (let b = Math.floor(f0 / binHz); b <= Math.min(buf.length - 1, Math.ceil(f1 / binHz)); b++) s = Math.max(s, buf[b]);
@@ -1004,6 +1004,7 @@ showNight();
     });
     peak = Math.max(0.25, peak * 0.995, mx);
     bars.forEach((el, i) => { const t = Math.pow(Math.min(1, raw[i] / peak), 1.3); lv[i] += (t - lv[i]) * (t > lv[i] ? 0.55 : 0.15); el.style.height = (15 + 85 * lv[i]).toFixed(0) + '%'; });
+    wide.forEach((el, i) => { const k = lv[Math.min(3, Math.floor(i * 4 / wide.length))] * (0.7 + 0.3 * Math.abs(Math.sin(i * 1.7 + performance.now() / 400))); el.style.height = (12 + 88 * Math.min(1, k)).toFixed(0) + '%'; });
   }
   requestAnimationFrame(tick);
 })();

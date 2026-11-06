@@ -456,4 +456,13 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 #player.liveradio:not(.mini):not(.full) .deck #pp{grid-area:1/2/3/3;width:84px;height:84px;justify-self:center;padding:0}
 #player.liveradio:not(.mini):not(.full) .deck #night{grid-area:1/1;height:40px}
 #player.liveradio:not(.mini):not(.full) .deck #sleep{grid-area:2/1;height:40px}
-#player.liveradio:not(.mini):not(.full) .deck #info{grid-area:1/3/3/4;height:40px;align-self:center;display:inline-flex!important;align-items:center;justify-content:center}
+#player.liveradio:not(.mini):not(.full) .deck #info{grid-area:1/3;height:40px;display:inline-flex!important;align-items:center;justify-content:center}
+
+/* animation large sous le bouton Fiche (radio) */
+.eqw{display:none}
+#player.liveradio:not(.mini):not(.full) .deck .eqw{display:flex;grid-area:2/3;align-items:flex-end;justify-content:center;gap:3px;height:40px;padding:6px 8px;box-sizing:border-box}
+.eqw i{display:block;flex:1;max-width:8px;height:30%;border-radius:3px;background:linear-gradient(to top,var(--acc),var(--acc2));transform-origin:bottom}
+#player.playing .eqw i{animation:eq 0.9s ease-in-out infinite}
+#player.playing .eqw i:nth-child(3n+1){animation-delay:-.2s;animation-duration:.8s}#player.playing .eqw i:nth-child(3n+2){animation-delay:-.6s;animation-duration:1.1s}#player.playing .eqw i:nth-child(3n){animation-delay:-.4s;animation-duration:.7s}
+#player.live .eqw i{animation:none!important;transition:height .05s linear}
+@media (prefers-reduced-motion:reduce){#player.playing .eqw i{animation:none;height:70%}}
