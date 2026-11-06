@@ -513,12 +513,12 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 /* la cassette */
 :root[data-skin=walkman] #player:not(.mini) #cassette{display:block;position:relative}
 :root[data-skin=walkman] #np-art,:root[data-skin=walkman] #viz,:root[data-skin=walkman] #player .np .eq{display:none!important}
-#cassette svg{display:block;width:100%;height:auto;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
-#cassette .clabel{position:absolute;left:9.5%;top:25%;width:81%;height:25%;display:flex;flex-direction:column;justify-content:center;overflow:hidden;color:#2d2a22;font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;line-height:1.15;pointer-events:none}
+#cassette svg{display:block;width:100%;height:auto;filter:drop-shadow(0 10px 16px rgba(0,0,0,.6))}
+#cassette .clabel{position:absolute;left:17.6%;top:26.5%;width:64.8%;height:27%;display:flex;flex-direction:column;justify-content:center;overflow:hidden;color:#2d2a22;font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;line-height:1.15;pointer-events:none}
 #cassette .clabel b{font-size:clamp(11px,3.6vw,16px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #cassette .clabel small{font-size:clamp(9px,2.8vw,12px);color:#6a6354;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #cassette .hub{transform-box:fill-box;transform-origin:center}
-#player.playing #cassette .hub{animation:cspin 2.2s linear infinite}
+#player.playing #cassette .hub{animation:cspin 1.8s linear infinite}
 @keyframes cspin{to{transform:rotate(-360deg)}}
 #cassette .tape.l{r:calc(16px + 12px * (1 - var(--p,0)))}
 #cassette .tape.r{r:calc(16px + 12px * var(--p,0))}
