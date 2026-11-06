@@ -500,12 +500,17 @@ function libResults() {
   };
 }
 // Réglages : retour automatique, Wi-Fi, espace
-const settingsExtraHtml = () => `<label>Lecture</label><p class="dim sm">Retour automatique à la reprise (après une pause)</p>${seg('rwseg', RW_OPTS, String(rwSecs()))}
+const skinOf = () => localStorage.getItem('skin') === 'walkman' ? 'walkman' : 'modern';
+const applySkin = () => { document.documentElement.dataset.skin = skinOf(); };
+applySkin();
+const settingsExtraHtml = () => `<label>Apparence</label><p class="dim sm">Moderne, ou Walkman : cassette qui tourne, touches mécaniques qui s'enclenchent.</p>${seg('skinseg', [['modern', 'Moderne'], ['walkman', 'Walkman']], skinOf())}
+  <label>Lecture</label><p class="dim sm">Retour automatique à la reprise (après une pause)</p>${seg('rwseg', RW_OPTS, String(rwSecs()))}
   <p class="dim sm">Bouton « Pub » du lecteur : saute en avant de</p>${seg('adseg', [['30', '30 s'], ['60', '60 s'], ['90', '90 s'], ['120', '2 min']], String(adSecs()))}
   <label>Téléchargements</label><p><button type="button" id="wifi" class="tgl${wifiOnly() ? ' on' : ''}">Wi-Fi seulement : ${wifiOnly() ? 'activé' : 'désactivé'}</button></p><p class="dim sm">Activé : les téléchargements automatiques n'utilisent pas les données mobiles, et un téléchargement manuel demande confirmation.</p>
   <p id="stor" class="dim sm"></p><p><button id="dl-clear" type="button">Supprimer tous les téléchargements</button></p>
   <label>Raccourcis</label><p class="dim sm">Les raccourcis se règlent sur la page Accueil (Ajouter / Modifier). En plus, un appui long sur l'icône de l'app propose Reprendre, À écouter, Radios et Découvrir.</p>`;
 function bindSettingsExtra() {
+  const sk = $('#skinseg'); if (sk) sk.onclick = ev => { const b = ev.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('skin', b.dataset.v); applySkin(); sk.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); try { navigator.vibrate && b.dataset.v === 'walkman' && navigator.vibrate(15); } catch {} };
   const rs = $('#rwseg'); if (rs) rs.onclick = e => { const b = e.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('rewind', b.dataset.v); rs.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   const as = $('#adseg'); if (as) as.onclick = ev => { const b = ev.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('ad.skip', b.dataset.v); adLabel(); as.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   const w = $('#wifi'); if (w) w.onclick = () => { const on = !wifiOnly(); localStorage.setItem('dl.wifi', on ? '1' : '0'); w.classList.toggle('on', on); w.textContent = 'Wi-Fi seulement : ' + (on ? 'activé' : 'désactivé'); };
@@ -536,6 +541,12 @@ function handleHash() {
 }
 // Branchements sur le lecteur (appelé une fois par app.js, après la création de l'élément audio)
 function bootExtra() {
+  { // cassette : le titre s'écrit sur l'étiquette ; les touches « claquent » (vibration) en mode Walkman
+    const t = document.getElementById('np-title'), s = document.getElementById('np-show'), ct = document.getElementById('c-title'), cs = document.getElementById('c-sub');
+    const sync = () => { if (ct) ct.textContent = t.textContent; if (cs) cs.textContent = s.textContent; };
+    new MutationObserver(sync).observe(t, { childList: true, characterData: true, subtree: true }); new MutationObserver(sync).observe(s, { childList: true, characterData: true, subtree: true }); sync();
+    document.getElementById('player').addEventListener('pointerdown', ev => { if (skinOf() === 'walkman' && ev.target.closest('button')) { try { navigator.vibrate && navigator.vibrate(12); } catch {} } }, true);
+  }
   initImgFallback();
   setInterval(smartTick, 1000);
   onAudio('play', () => { // minuteur malin : départ automatique la nuit

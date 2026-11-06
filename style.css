@@ -486,3 +486,51 @@ h4.sect{margin:12px 0 6px;font-size:13px;color:var(--dim);font-weight:600}
 #player.full.liveradio .deck #pp{width:78px;height:78px}
 #player.full.liveradio .deck #info,#player.full.liveradio .deck .eqw{display:none!important}
 @media (max-height:780px){#player.full.liveradio #viz{display:none}#player.full.liveradio #radbox{max-height:20vh}}
+
+/* ================= Apparence Walkman ================= */
+#cassette{display:none}
+:root[data-skin=walkman]{--bg:#15120e;--card:rgba(255,236,205,.05);--line:rgba(255,196,120,.16);--fg:#f4ead8;--dim:#ab9c84;--acc:#ff9a2e;--acc2:#ffd25a}
+:root[data-skin=walkman] body{background:radial-gradient(900px 500px at 85% -10%,rgba(255,140,40,.14),transparent 60%),radial-gradient(700px 500px at -10% 10%,rgba(255,200,90,.08),transparent 60%),repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 2px,transparent 2px 4px),var(--bg)}
+:root[data-skin=walkman] h1{letter-spacing:.02em;text-transform:uppercase;font-size:26px;font-weight:800}
+/* le lecteur = le boîtier métal du baladeur */
+:root[data-skin=walkman] #player{background:linear-gradient(180deg,#6b6c71 0%,#46474c 12%,#2e2f33 100%);border:2px solid #121214;box-shadow:0 14px 34px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -2px 0 rgba(0,0,0,.5);backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:18px}
+:root[data-skin=walkman] #player.full{border-radius:0;background:linear-gradient(180deg,#44454a 0%,#26272b 30%,#1a1a1d 100%)}
+/* touches mécaniques */
+:root[data-skin=walkman] #player button:not(#collapse):not(#expand):not(#closep){border-radius:7px;border:1px solid #0b0b0c;background:linear-gradient(180deg,#8d8e93 0%,#5d5e63 45%,#3d3e42 100%);color:#17140f;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.06em;box-shadow:0 4px 0 #0a0a0b,0 6px 8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.45);transition:transform .06s,box-shadow .06s;text-shadow:0 1px 0 rgba(255,255,255,.3)}
+:root[data-skin=walkman] #player button:not(#collapse):not(#expand):not(#closep):active{transform:translateY(4px);box-shadow:0 0 0 #0a0a0b,inset 0 2px 5px rgba(0,0,0,.6);background:linear-gradient(180deg,#4a4b50,#6a6b70)}
+:root[data-skin=walkman] #player .ctl button svg{filter:drop-shadow(0 1px 0 rgba(255,255,255,.25))}
+:root[data-skin=walkman] #player #pp{background:linear-gradient(180deg,#ffb74a,#ff8a1e 55%,#d96a05);color:#2a1604;border-color:#5a2d00;text-shadow:none}
+/* PLAY enclenché : la touche reste enfoncée tant que ça joue */
+:root[data-skin=walkman] #player.playing #pp{transform:translateY(4px);box-shadow:0 0 0 #0a0a0b,inset 0 3px 8px rgba(0,0,0,.55);background:linear-gradient(180deg,#d96a05,#f58a1e)}
+:root[data-skin=walkman] #player button.on,:root[data-skin=walkman] #player .ctl.opts button.on{transform:translateY(4px);box-shadow:0 0 0 #0a0a0b,inset 0 3px 7px rgba(0,0,0,.55);background:linear-gradient(180deg,#b96a14,#ffa23a);color:#2a1604;border-color:#5a2d00}
+:root[data-skin=walkman] #player .ctl.opts button{color:#17140f}
+:root[data-skin=walkman] #player #collapse,:root[data-skin=walkman] #player #expand,:root[data-skin=walkman] #player #closep{background:linear-gradient(180deg,#6d6e73,#3e3f43);border:1px solid #0b0b0c;box-shadow:0 3px 0 #0a0a0b;color:#f4ead8}
+:root[data-skin=walkman] #np-title{font-family:"Courier New",ui-monospace,monospace;text-transform:uppercase;letter-spacing:.04em;font-size:14px}
+:root[data-skin=walkman] #np-show{font-family:"Courier New",ui-monospace,monospace;color:#ffb15a}
+:root[data-skin=walkman] #seek{accent-color:#ff9a2e}
+:root[data-skin=walkman] .times{font-family:"Courier New",ui-monospace,monospace;color:#ffb15a}
+:root[data-skin=walkman] #player.mini{border-radius:14px}
+/* la cassette */
+:root[data-skin=walkman] #player:not(.mini) #cassette{display:block;position:relative}
+:root[data-skin=walkman] #np-art,:root[data-skin=walkman] #viz,:root[data-skin=walkman] #player .np .eq{display:none!important}
+#cassette svg{display:block;width:100%;height:auto;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
+#cassette .clabel{position:absolute;left:9.5%;top:25%;width:81%;height:25%;display:flex;flex-direction:column;justify-content:center;overflow:hidden;color:#2d2a22;font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;line-height:1.15;pointer-events:none}
+#cassette .clabel b{font-size:clamp(11px,3.6vw,16px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cassette .clabel small{font-size:clamp(9px,2.8vw,12px);color:#6a6354;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cassette .hub{transform-box:fill-box;transform-origin:center}
+#player.playing #cassette .hub{animation:cspin 2.2s linear infinite}
+@keyframes cspin{to{transform:rotate(-360deg)}}
+#cassette .tape.l{r:calc(16px + 12px * (1 - var(--p,0)))}
+#cassette .tape.r{r:calc(16px + 12px * var(--p,0))}
+.liveradio #cassette .tape{r:22px}
+@media (prefers-reduced-motion:reduce){#player.playing #cassette .hub{animation-duration:8s}}
+/* plein écran : grande cassette */
+:root[data-skin=walkman] #player.full #cassette{width:min(86vw,380px);margin:0 0 20px}
+:root[data-skin=walkman] #player.full .np{display:none}
+:root[data-skin=walkman] #player.full.liveradio .np::before{display:none}
+/* lecteur normal : petite cassette à la place de la vignette */
+:root[data-skin=walkman] #player:not(.mini):not(.full) #cassette{float:left;width:112px;margin:0 12px 8px 0}
+:root[data-skin=walkman] #player:not(.mini):not(.full) #cassette .clabel{display:none}
+:root[data-skin=walkman] #player:not(.mini):not(.full) .np{min-height:72px}
+:root[data-skin=walkman] #player button#pp:not(#collapse):not(#expand):not(#closep){background:linear-gradient(180deg,#ffb74a,#ff8a1e 55%,#d96a05);color:#2a1604;border-color:#5a2d00;text-shadow:none}
+:root[data-skin=walkman] #player.playing button#pp:not(#collapse):not(#expand):not(#closep){transform:translateY(4px);box-shadow:0 0 0 #0a0a0b,inset 0 3px 8px rgba(0,0,0,.55);background:linear-gradient(180deg,#d96a05,#f58a1e)}
