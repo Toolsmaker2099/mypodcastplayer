@@ -547,3 +547,12 @@ html.win #popout{display:none!important}
 #cassette .clabel{top:33%;height:22.5%}
 #cassette .clabel b{font-size:4.2cqw}
 #cassette .clabel small{font-size:3.2cqw}
+
+#cassette .roller,#cassette .capstan,#cassette .idler{transform-box:fill-box;transform-origin:center}
+#player.playing #cassette .idler{animation:cspin2 1.8s linear infinite}
+#player.playing #cassette .roller{animation:cspin2 .7s linear infinite}
+#player.playing #cassette .capstan{animation:cspin .5s linear infinite}
+#player.playing #cassette .flow{animation:cflow .45s linear infinite}
+@keyframes cspin2{to{transform:rotate(360deg)}}
+@keyframes cflow{to{stroke-dashoffset:-12}}
+@media (prefers-reduced-motion:reduce){#player.playing #cassette .roller,#player.playing #cassette .capstan,#player.playing #cassette .flow{animation-duration:3s}}
