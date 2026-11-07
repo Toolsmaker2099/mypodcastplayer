@@ -324,17 +324,26 @@ function radFicheBody(r, short) {
   }
   return body || '<div class="prow"><span class="dim">Cette radio ne publie pas d\'informations sur son programme.</span></div>';
 }
+let radFicheEl = null;
 function radFiche(anchor) {
   const r = curRadio; if (!r) return;
-  const el = popover(anchor, `<div class="phead">${esc(r.name)}</div><div class="lbody">${radFicheBody(r, false)}</div>`); if (el) el.place();
+  const el = popover(anchor, `<div class="phead">${esc(r.name)}</div><div class="lbody">${radFicheBody(r, false)}</div>`); if (el) { el.place(); radFicheEl = el; }
 }
-function radBoxUpdate() { const b = document.getElementById('radbox'); if (!b) return; b.innerHTML = curRadio && curEp && curEp.live ? radFicheBody(curRadio, true) : ''; }
+function radBoxUpdate() {
+  const b = document.getElementById('radbox'); if (b) b.innerHTML = curRadio && curEp && curEp.live ? radFicheBody(curRadio, true) : '';
+  // la fiche ouverte se met à jour en direct (programme en cours, derniers titres)
+  if (radFicheEl && radFicheEl.isConnected && curRadio && curEp && curEp.live) { const lb = radFicheEl.querySelector('.lbody'); if (lb) lb.innerHTML = radFicheBody(curRadio, false); } else radFicheEl = null;
+}
+// Reprise après veille ou coupure réseau : on rafraîchit tout de suite (les minuteries sont suspendues écran éteint)
+const radKick = () => { if (curRadio && curRadio.rf && curEp && curEp.live) radNow(curRadio); };
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') radKick(); });
+window.addEventListener('online', radKick); window.addEventListener('focus', radKick);
 // Informations « en ce moment » : titre du morceau ou de l'émission, artiste, image (Radio France publie ces données ; les autres radios n'en exposent pas au navigateur).
 async function radNow(r) {
   if (!r.rf) return;
   if (!curEp || !curEp.live || curRadio !== r) { clearInterval(radTimer); return; }
   try {
-    const d = await (await fetch('https://api.radiofrance.fr/livemeta/pull/' + r.rf)).json(), now = Date.now() / 1000; radMeta = { id: r.rf, d }; radBoxUpdate();
+    const d = await (await fetch('https://api.radiofrance.fr/livemeta/pull/' + r.rf, { cache: 'no-store', signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined })).json(), now = Date.now() / 1000; radMeta = { id: r.rf, d }; radBoxUpdate();
     const cur = (d.levels || []).map(l => d.steps[l.items[l.position]]).filter(Boolean).map(s => s).sort((a, b) => (a.depth || 0) - (b.depth || 0));
     if (!cur.length) return;
     const top = cur[0], deep = cur[cur.length - 1], song = deep.embedType === 'song' || (deep.authors && deep !== top);
@@ -346,7 +355,7 @@ async function radNow(r) {
     $('#np-title').textContent = title || r.name; $('#np-show').textContent = sub.join(' · ');
     if (img && /^https:/.test(img)) { $('#np-art').src = img; $('#np-art').style.visibility = 'visible'; }
     if ('mediaSession' in navigator) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title || r.name, artist: sub.slice(1).join(' · ') || r.name, artwork: img ? [{ src: img, sizes: '400x400' }] : [] }); } catch {}
-  } catch {}
+  } catch { try { radBoxUpdate(); } catch {} } // échec réseau : on réaffiche au moins l'heure courante
 }
 const rfLocal = (q, o) => { const n = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); const w = n(q).trim();
   if (o.country && o.country !== 'FR' && o.tag !== 'rf') return [];
