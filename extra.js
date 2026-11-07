@@ -511,17 +511,31 @@ function libResults() {
   };
 }
 // Réglages : retour automatique, Wi-Fi, espace
+// ---------- Écran toujours allumé tant que l'appli est affichée (Wake Lock) ----------
+let wakeSentinel = null;
+const wakeOn = () => localStorage.getItem('wake') !== '0';
+async function wakeAcquire() {
+  if (!wakeOn() || wakeSentinel || !navigator.wakeLock || document.visibilityState !== 'visible') return;
+  try { const s = await navigator.wakeLock.request('screen'); wakeSentinel = s; s.addEventListener('release', () => { if (wakeSentinel === s) wakeSentinel = null; }); } catch { wakeSentinel = null; }
+}
+function wakeRelease() { try { wakeSentinel && wakeSentinel.release(); } catch {} wakeSentinel = null; }
+function wakeRefresh() { wakeOn() ? wakeAcquire() : wakeRelease(); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wakeAcquire(); else wakeSentinel = null; });
+window.addEventListener('pointerdown', wakeAcquire, { passive: true }); // filet de sécurité : certains navigateurs exigent un geste
+wakeAcquire();
 const skinOf = () => localStorage.getItem('skin') === 'walkman' ? 'walkman' : 'modern';
 const applySkin = () => { document.documentElement.dataset.skin = skinOf(); };
 applySkin();
 const settingsExtraHtml = () => `<label>Apparence</label><p class="dim sm">Moderne, ou Rétro : style baladeur K7, métal argenté, cassette qui tourne, touches qui s'enclenchent.</p>${seg('skinseg', [['modern', 'Moderne'], ['walkman', 'Rétro']], skinOf())}
   <label>Lecture</label><p class="dim sm">Retour automatique à la reprise (après une pause)</p>${seg('rwseg', RW_OPTS, String(rwSecs()))}
   <p class="dim sm">Bouton « Pub » du lecteur : saute en avant de</p>${seg('adseg', [['30', '30 s'], ['60', '60 s'], ['90', '90 s'], ['120', '2 min']], String(adSecs()))}
+  <label>Écran</label><p><button type="button" id="wakebtn" class="tgl${wakeOn() ? ' on' : ''}">Écran toujours allumé : ${wakeOn() ? 'activé' : 'désactivé'}</button></p><p class="dim sm">L'écran ne se met pas en veille tant que l'appli est affichée (consomme plus de batterie). Si tu verrouilles toi-même le téléphone, l'écran s'éteint et la lecture continue.</p>
   <label>Téléchargements</label><p><button type="button" id="wifi" class="tgl${wifiOnly() ? ' on' : ''}">Wi-Fi seulement : ${wifiOnly() ? 'activé' : 'désactivé'}</button></p><p class="dim sm">Activé : les téléchargements automatiques n'utilisent pas les données mobiles, et un téléchargement manuel demande confirmation.</p>
   <p id="stor" class="dim sm"></p><p><button id="dl-clear" type="button">Supprimer tous les téléchargements</button></p>
   <label>Raccourcis</label><p class="dim sm">Les raccourcis se règlent sur la page Accueil (Ajouter / Modifier). En plus, un appui long sur l'icône de l'app propose Reprendre, À écouter, Radios et Découvrir.</p>`;
 function bindSettingsExtra() {
   const sk = $('#skinseg'); if (sk) sk.onclick = ev => { const b = ev.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('skin', b.dataset.v); applySkin(); sk.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); try { navigator.vibrate && b.dataset.v === 'walkman' && navigator.vibrate(15); } catch {} };
+  const wk = $('#wakebtn'); if (wk) wk.onclick = () => { localStorage.setItem('wake', wakeOn() ? '0' : '1'); wk.classList.toggle('on', wakeOn()); wk.textContent = 'Écran toujours allumé : ' + (wakeOn() ? 'activé' : 'désactivé'); wakeRefresh(); };
   const rs = $('#rwseg'); if (rs) rs.onclick = e => { const b = e.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('rewind', b.dataset.v); rs.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   const as = $('#adseg'); if (as) as.onclick = ev => { const b = ev.target.closest('button[data-v]'); if (!b) return; localStorage.setItem('ad.skip', b.dataset.v); adLabel(); as.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   const w = $('#wifi'); if (w) w.onclick = () => { const on = !wifiOnly(); localStorage.setItem('dl.wifi', on ? '1' : '0'); w.classList.toggle('on', on); w.textContent = 'Wi-Fi seulement : ' + (on ? 'activé' : 'désactivé'); };
