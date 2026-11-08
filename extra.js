@@ -264,6 +264,11 @@ const RADIO_FR = [
   ['France Musique Concerts', 'francemusiqueconcertsradiofrance', 'francemusique'], ['France Musique Contemporaine', 'francemusiquelacontemporaine', 'francemusique'],
   ['France Musique La BO', 'francemusiquelabo', 'francemusique'], ['France Musique Baroque', 'francemusiquebaroque', 'francemusique'], ['France Musique Piano Zen', 'francemusiquepianozen', 'francemusique'],
 ].map(([name, m, p]) => ({ id: m, name, url: `https://icecast.radiofrance.fr/${m}-midfi.mp3`, logo: `https://www.radiofrance.fr/external/favicons/${p}/favicon.png`, tags: 'Webradio Radio France' }))); // rf : identifiant « livemeta » de Radio France (titre en cours)
+// Chaînes TV (son du flux vidéo HLS officiel) : lecture native du navigateur, proposées seulement si le HLS est lisible
+const TV_FR = [['BFM TV', 'https://live-cdn-stream-euw1.bfmtv.bct.nextradiotv.com/master.m3u8'], ['BFM Business', 'https://live-cdn-stream-euw1.bfmb.bct.nextradiotv.com/master.m3u8'],
+  ['Euronews (français)', 'https://cdn-euronews.akamaized.net/live/eds/euronews-fr/25026/index.m3u8'], ['France 24 (français)', 'https://live.france24.com/hls/live/2037179/F24_FR_HI_HLS/master_900.m3u8']]
+  .map(([name, url]) => ({ id: url, name, url, logo: '', tags: 'Chaîne TV (son)' }));
+const tvOk = () => !!document.createElement('audio').canPlayType('application/vnd.apple.mpegurl');
 const RF_SLUG = { franceinter: 1, franceinfo: 2, franceculture: 5, francemusique: 4, fip: 7, mouv: 6 };
 const rfFor = (name, url) => { const m = /icecast\.radiofrance\.fr\/(franceinter|franceinfo|franceculture|francemusique|fip|mouv)-/.exec(url || ''); if (m) return RF_SLUG[m[1]]; const n = (name || '').toLowerCase().replace(/[^a-z]/g, ''); return RF_SLUG[n] || undefined; };
 const RF_LOGO = { 1: 'franceinter', 2: 'franceinfo', 5: 'franceculture', 4: 'francemusique', 7: 'fip', 6: 'mouv' };
@@ -358,13 +363,14 @@ async function radNow(r) {
   } catch { try { radBoxUpdate(); } catch {} } // échec réseau : on réaffiche au moins l'heure courante
 }
 const rfLocal = (q, o) => { const n = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); const w = n(q).trim();
+  if (o.tag === 'tv') return tvOk() ? TV_FR.filter(r => !w || n(r.name).includes(w)) : [];
   if (o.country && o.country !== 'FR' && o.tag !== 'rf') return [];
   const TAG = { news: /franceinfo|inter/, talk: /inter|culture|franceinfo/, rap: /mouv|hip-hop/, music: /./, pop: /pop|fip|mouv/, rock: /rock/, jazz: /jazz/, electronic: /electro/, classical: /france musique|classi|baroque|concert|contemp/, oldies: /sacre/ }[o.tag];
   if (o.tag === 'rf') return RADIO_FR.filter(r => !w || n(r.name).includes(w));
   if (o.tag && !TAG) return [];
   return RADIO_FR.filter(r => (!w || n(r.name).includes(w) || n('radio france').includes(w)) && (!o.tag || TAG.test(n(r.name)))); };
 async function radSearch(q, o = {}) {
-  const loc = rfLocal(q, o); if (o.tag === 'rf') return loc;
+  const loc = rfLocal(q, o); if (o.tag === 'rf' || o.tag === 'tv') return loc;
   const merge = a => { const u = new Set(loc.map(r => r.url)); return loc.concat(a.filter(r => !u.has(r.url))); };
   return merge(await radSearchNet(q, o).catch(e => { if (loc.length) return []; throw e; }));
 }
@@ -382,7 +388,7 @@ async function radSearchNet(q, o = {}) {
   }
   throw lastErr || new Error('indisponible');
 }
-const RAD_CATS = [['Radio France', 'rf'], ['Info', 'news'], ['Talk', 'talk'], ['Musique', 'music'], ['Pop', 'pop'], ['Rock', 'rock'], ['Jazz', 'jazz'], ['Classique', 'classical'], ['Rap', 'rap'], ['Électro', 'electronic'], ['Oldies', 'oldies'], ['Sport', 'sport'], ['Humour', 'comedy'], ['Nature', 'nature'], ['Ambiance', 'ambient'], ['Enfants', 'kids']];
+const RAD_CATS = [['Radio France', 'rf'], ...(tvOk() ? [['Chaînes TV (son)', 'tv']] : []), ['Info', 'news'], ['Talk', 'talk'], ['Musique', 'music'], ['Pop', 'pop'], ['Rock', 'rock'], ['Jazz', 'jazz'], ['Classique', 'classical'], ['Rap', 'rap'], ['Électro', 'electronic'], ['Oldies', 'oldies'], ['Sport', 'sport'], ['Humour', 'comedy'], ['Nature', 'nature'], ['Ambiance', 'ambient'], ['Enfants', 'kids']];
 let radCat = '', radCountry = 'FR', radLang = '', radQ = '';
 const radRow = (r, i) => `<div class="item radio" data-i="${i}"><img src="${esc(radLogo(r))}" alt=""><div class="t"><b>${esc(r.name)}</b><small class="m">En direct</small></div><div class="acts">${starBtn(radIsFav(r)).replace('data-star', 'data-star data-rfav')}</div></div>`;
 // mode : 'lib' (mes radios), 'quick' (accueil : mes radios + Radio France), 'find' (Découvrir : recherche + suggestions)
